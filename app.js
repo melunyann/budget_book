@@ -1,0 +1,759 @@
+/* ==========================================================
+   おかねびより - app.js
+   バイトのシフト管理 + 家計簿カレンダー（localStorage 保存）
+   ========================================================== */
+
+const STORAGE_KEY = 'okanebiyori_v1';
+const $ = (id) => document.getElementById(id);
+
+const INCOME_CATS  = ['バイト代(手動)', 'お小遣い', '副業', 'プレゼント', 'その他収入'];
+const EXPENSE_CATS = ['食費', '交通費', '日用品', '交際費', '趣味・娯楽', '衣服・美容', '通信費', '家賃', 'その他'];
+const YOUBI = ['日','月','火','水','木','金','土'];
+
+/* ---------------- State / storage ---------------- */
+
+function defaultState(){
+  return {
+    settings: {
+      hourlyWage: 1100,
+      closingDay: 'end',   // 'end' or 1-28
+      paydayOffset: 1,     // 0,1,2 ヶ月後
+      paydayDay: 25        // 'end' or 1-31
+    },
+    shifts: [],      // {id, date:'YYYY-MM-DD', start:'HH:MM', end:'HH:MM', breakMin, wage(optional)}
+    transactions: [] // {id, date, type:'income'|'expense', category, amount, memo}
+  };
+}
+
+let state = loadState();
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    const def = defaultState();
+    return {
+      settings: Object.assign(def.settings, parsed.settings || {}),
+      shifts: parsed.shifts || [],
+      transactions: parsed.transactions || []
+    };
+  }catch(e){
+    console.error('load error', e);
+    return defaultState();
+  }
+}
+
+function saveState(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function uid(){
+  return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+}
+
+/* ---------------- Date utils ---------------- */
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+function ymd(y,m,d){ return `${y}-${pad2(m)}-${pad2(d)}`; }
+function ymdFromDate(dt){ return ymd(dt.getFullYear(), dt.getMonth()+1, dt.getDate()); }
+function parseYMD(s){
+  const [y,m,d] = s.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+function daysInMonth(y,m){ return new Date(y, m, 0).getDate(); } // m:1-12
+function addMonthsYM(y,m,n){
+  const total = (m-1) + n;
+  const ny = y + Math.floor(total/12);
+  const nm = ((total % 12)+12)%12 + 1;
+  return {y:ny, m:nm};
+}
+function todayStr(){ return ymdFromDate(new Date()); }
+function isSameDate(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+function fmtYen(n){ return '¥' + Math.round(n).toLocaleString('ja-JP'); }
+function fmtSignedYen(n){
+  const v = Math.round(n);
+  return (v>0? '+':'') + '¥' + v.toLocaleString('ja-JP');
+}
+function startOfWeek(dt){ // Sunday start
+  const d = new Date(dt);
+  d.setDate(d.getDate() - d.getDay());
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+/* ---------------- Pay calculations ---------------- */
+
+function shiftMinutes(shift){
+  const [sh,sm] = shift.start.split(':').map(Number);
+  const [eh,em] = shift.end.split(':').map(Number);
+  let mins = (eh*60+em) - (sh*60+sm);
+  if(mins < 0) mins += 24*60; // overnight shift
+  mins -= (Number(shift.breakMin)||0);
+  return Math.max(0, mins);
+}
+function shiftHours(shift){ return shiftMinutes(shift)/60; }
+function shiftWage(shift){
+  return (shift.wage !== undefined && shift.wage !== null && shift.wage !== '') ? Number(shift.wage) : Number(state.settings.hourlyWage);
+}
+function shiftPay(shift){
+  return Math.floor(shiftHours(shift) * shiftWage(shift));
+}
+
+function resolveClosingDay(y,m){
+  const c = state.settings.closingDay;
+  if(c === 'end') return daysInMonth(y,m);
+  return Math.min(Number(c), daysInMonth(y,m));
+}
+function resolvePaydayDay(y,m){
+  const p = state.settings.paydayDay;
+  if(p === 'end') return daysInMonth(y,m);
+  return Math.min(Number(p), daysInMonth(y,m));
+}
+// 指定日がどの「締め期間」に属するか -> {y,m} は締め月
+function getPeriodForDate(dateStr){
+  const d = parseYMD(dateStr);
+  const y = d.getFullYear(), m = d.getMonth()+1, day = d.getDate();
+  const closing = resolveClosingDay(y,m);
+  if(day <= closing) return {y, m};
+  const nxt = addMonthsYM(y,m,1);
+  return {y:nxt.y, m:nxt.m};
+}
+// 締め期間 -> 支払日の Date
+function getPaydayDate(py,pm){
+  const off = Number(state.settings.paydayOffset);
+  const {y,m} = addMonthsYM(py,pm,off);
+  const day = resolvePaydayDay(y,m);
+  return new Date(y, m-1, day);
+}
+function periodLabel(py,pm){ return `${py}年${pm}月分`; }
+
+// 給料日(YYYY-MM-DD) -> { total, count, periods:[{py,pm}] }
+function computePaydayMap(){
+  const periodTotals = {}; // key "y-m" -> total
+  const periodCounts = {};
+  state.shifts.forEach(sh=>{
+    const {y,m} = getPeriodForDate(sh.date);
+    const key = `${y}-${m}`;
+    periodTotals[key] = (periodTotals[key]||0) + shiftPay(sh);
+    periodCounts[key] = (periodCounts[key]||0) + 1;
+  });
+  const map = {};
+  Object.keys(periodTotals).forEach(key=>{
+    const [py,pm] = key.split('-').map(Number);
+    const pd = getPaydayDate(py,pm);
+    const pdStr = ymdFromDate(pd);
+    if(!map[pdStr]) map[pdStr] = {total:0, count:0, periods:[]};
+    map[pdStr].total += periodTotals[key];
+    map[pdStr].count += periodCounts[key];
+    map[pdStr].periods.push({py,pm});
+  });
+  return map;
+}
+
+function rulePreviewText(){
+  const s = state.settings;
+  const closingTxt = s.closingDay==='end' ? '月末' : `${s.closingDay}日`;
+  const offTxt = ['締め月と同じ月','翌月','翌々月'][Number(s.paydayOffset)];
+  const paydayTxt = s.paydayDay==='end' ? '月末' : `${s.paydayDay}日`;
+  return `例：${closingTxt}締め → ${offTxt}の${paydayTxt}が給料日になります。`;
+}
+
+/* ---------------- Derived lookups ---------------- */
+
+function shiftsOnDate(dateStr){ return state.shifts.filter(s=>s.date===dateStr); }
+function txnsOnDate(dateStr){ return state.transactions.filter(t=>t.date===dateStr); }
+function shiftsInMonth(y,m){
+  return state.shifts.filter(s=>{
+    const d = parseYMD(s.date);
+    return d.getFullYear()===y && d.getMonth()+1===m;
+  });
+}
+function txnsInMonth(y,m){
+  return state.transactions.filter(t=>{
+    const d = parseYMD(t.date);
+    return d.getFullYear()===y && d.getMonth()+1===m;
+  });
+}
+
+/* ==========================================================
+   ナビゲーション状態
+   ========================================================== */
+let monthCursor = new Date(); monthCursor.setDate(1);
+let weekCursor = startOfWeek(new Date());
+let ledgerCursor = new Date(); ledgerCursor.setDate(1);
+
+/* ==========================================================
+   タブ切替
+   ========================================================== */
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    $('view-' + btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab==='month') renderMonth();
+    if(btn.dataset.tab==='week') renderWeek();
+    if(btn.dataset.tab==='ledger') renderLedger();
+    if(btn.dataset.tab==='settings') renderSettings();
+  });
+});
+
+/* ==========================================================
+   月カレンダー描画
+   ========================================================== */
+function renderMonth(){
+  const y = monthCursor.getFullYear(), m = monthCursor.getMonth()+1;
+  $('m-label').textContent = `${y}年${m}月`;
+
+  const paydayMap = computePaydayMap();
+
+  // サマリー：今月勤務分
+  const mShifts = shiftsInMonth(y,m);
+  const mShiftTotal = mShifts.reduce((a,s)=>a+shiftPay(s),0);
+  $('m-shift-total').textContent = fmtYen(mShiftTotal);
+  $('m-shift-count').textContent = `${mShifts.length}件のシフト`;
+
+  // 次の給料日（今日以降で一番近いもの）
+  const today = todayStr();
+  const futurePaydays = Object.keys(paydayMap).filter(d=>d>=today).sort();
+  if(futurePaydays.length){
+    const nd = futurePaydays[0];
+    const dObj = parseYMD(nd);
+    $('m-next-payday').textContent = `${dObj.getMonth()+1}月${dObj.getDate()}日`;
+    $('m-next-payday-amt').textContent = fmtYen(paydayMap[nd].total);
+  } else {
+    $('m-next-payday').textContent = '-';
+    $('m-next-payday-amt').textContent = '予定なし';
+  }
+
+  // 家計簿ざっくり合計（当月・支払ベースの収入＋手動取引）
+  const {income, expense} = monthLedgerTotals(y,m,paydayMap);
+  $('m-income-total').textContent = fmtYen(income);
+  $('m-expense-total').textContent = fmtYen(expense);
+
+  // グリッド
+  const grid = $('month-grid');
+  grid.innerHTML = '';
+  const first = new Date(y, m-1, 1);
+  const startOffset = first.getDay();
+  const totalDays = daysInMonth(y,m);
+  const prevYM = m===1 ? {py:y-1, pm:12} : {py:y, pm:m-1};
+  const prevMonthDays = daysInMonth(prevYM.py, prevYM.pm);
+  const cells = [];
+
+  for(let i=0;i<startOffset;i++){
+    const dayNum = prevMonthDays - startOffset + 1 + i;
+    cells.push({dateStr:null, dayNum, out:true});
+  }
+  for(let d=1; d<=totalDays; d++){
+    cells.push({dateStr: ymd(y,m,d), dayNum:d, out:false});
+  }
+  while(cells.length % 7 !== 0){
+    cells.push({dateStr:null, dayNum: cells.length - (startOffset+totalDays) + 1, out:true});
+  }
+
+  cells.forEach(c=>{
+    const cell = document.createElement('div');
+    cell.className = 'day-cell' + (c.out?' out':'');
+    if(c.dateStr === today) cell.classList.add('today');
+    const num = document.createElement('div');
+    num.className = 'd-num';
+    num.textContent = c.dayNum;
+    cell.appendChild(num);
+
+    if(c.dateStr && !c.out){
+      const dayShifts = shiftsOnDate(c.dateStr);
+      if(dayShifts.length){
+        const pay = dayShifts.reduce((a,s)=>a+shiftPay(s),0);
+        const pill = document.createElement('div');
+        pill.className = 'day-pill shift';
+        pill.textContent = fmtYen(pay);
+        cell.appendChild(pill);
+      }
+      if(paydayMap[c.dateStr]){
+        const pill = document.createElement('div');
+        pill.className = 'day-pill payday';
+        pill.textContent = '給料 ' + fmtYen(paydayMap[c.dateStr].total);
+        cell.appendChild(pill);
+      }
+      const dayTxns = txnsOnDate(c.dateStr);
+      if(dayTxns.length){
+        const dots = document.createElement('div');
+        dots.className = 'day-dots';
+        dayTxns.slice(0,4).forEach(t=>{
+          const dot = document.createElement('span');
+          dot.className = 'dot ' + t.type;
+          dots.appendChild(dot);
+        });
+        cell.appendChild(dots);
+      }
+      cell.addEventListener('click', ()=>openDayModal(c.dateStr));
+    } else {
+      cell.style.cursor = 'default';
+    }
+    grid.appendChild(cell);
+  });
+}
+
+function monthLedgerTotals(y,m,paydayMap){
+  paydayMap = paydayMap || computePaydayMap();
+  let income = 0, expense = 0;
+  Object.keys(paydayMap).forEach(dateStr=>{
+    const d = parseYMD(dateStr);
+    if(d.getFullYear()===y && d.getMonth()+1===m) income += paydayMap[dateStr].total;
+  });
+  txnsInMonth(y,m).forEach(t=>{
+    if(t.type==='income') income += Number(t.amount);
+    else expense += Number(t.amount);
+  });
+  return {income, expense};
+}
+
+$('m-prev').addEventListener('click', ()=>{ monthCursor.setMonth(monthCursor.getMonth()-1); renderMonth(); });
+$('m-next').addEventListener('click', ()=>{ monthCursor.setMonth(monthCursor.getMonth()+1); renderMonth(); });
+
+/* ==========================================================
+   週カレンダー描画
+   ========================================================== */
+function renderWeek(){
+  const paydayMap = computePaydayMap();
+  const start = new Date(weekCursor);
+  const end = new Date(weekCursor); end.setDate(end.getDate()+6);
+  const fmtShort = (d)=> `${d.getMonth()+1}/${d.getDate()}`;
+  $('w-label').textContent = `${fmtShort(start)} - ${fmtShort(end)}`;
+
+  const today = todayStr();
+  let weekShiftTotal = 0, weekIncome = 0, weekExpense = 0;
+  const list = $('week-list');
+  list.innerHTML = '';
+
+  for(let i=0;i<7;i++){
+    const d = new Date(start); d.setDate(d.getDate()+i);
+    const dateStr = ymdFromDate(d);
+    const row = document.createElement('div');
+    row.className = 'week-day-row' + (dateStr===today?' today':'');
+
+    const dateCol = document.createElement('div');
+    dateCol.className = 'wd-date';
+    dateCol.innerHTML = `<div class="wd-name">${YOUBI[d.getDay()]}</div><div class="wd-num">${d.getDate()}</div>`;
+    row.appendChild(dateCol);
+
+    const body = document.createElement('div');
+    body.className = 'wd-body';
+
+    const dayShifts = shiftsOnDate(dateStr);
+    const dayTxns = txnsOnDate(dateStr);
+    const isPayday = !!paydayMap[dateStr];
+
+    if(!dayShifts.length && !dayTxns.length && !isPayday){
+      body.innerHTML = '<div class="wd-empty">記録なし</div>';
+    } else {
+      if(isPayday){
+        weekIncome += paydayMap[dateStr].total;
+        const item = document.createElement('div');
+        item.className = 'wd-item';
+        item.innerHTML = `<div class="ddi-main"><div class="tt">給料日</div></div>`;
+        const amt = document.createElement('span'); amt.className='wd-amt payday'; amt.textContent = fmtYen(paydayMap[dateStr].total);
+        item.appendChild(amt);
+        body.appendChild(item);
+      }
+      dayShifts.forEach(s=>{
+        const pay = shiftPay(s);
+        weekShiftTotal += pay;
+        const item = document.createElement('div');
+        item.className = 'wd-item';
+        item.innerHTML = `<div class="wd-item-main"><div class="tt">バイト ${s.start}-${s.end}</div><div class="sub">${shiftHours(s).toFixed(1)}h・時給${fmtYen(shiftWage(s))}</div></div>`;
+        const amt = document.createElement('span'); amt.className='wd-amt shift'; amt.textContent = fmtYen(pay);
+        item.appendChild(amt);
+        body.appendChild(item);
+      });
+      dayTxns.forEach(t=>{
+        if(t.type==='income') weekIncome += Number(t.amount); else weekExpense += Number(t.amount);
+        const item = document.createElement('div');
+        item.className = 'wd-item';
+        item.innerHTML = `<div class="wd-item-main"><div class="tt">${t.category}</div><div class="sub">${t.memo||''}</div></div>`;
+        const amt = document.createElement('span'); amt.className='wd-amt ' + t.type; amt.textContent = (t.type==='expense'?'-':'+') + fmtYen(t.amount);
+        item.appendChild(amt);
+        body.appendChild(item);
+      });
+    }
+    row.appendChild(body);
+    row.addEventListener('click', (e)=>{ openDayModal(dateStr); });
+    list.appendChild(row);
+  }
+
+  $('w-shift-total').textContent = fmtYen(weekShiftTotal);
+  $('w-balance').textContent = fmtSignedYen(weekIncome - weekExpense);
+}
+
+$('w-prev').addEventListener('click', ()=>{ weekCursor.setDate(weekCursor.getDate()-7); renderWeek(); });
+$('w-next').addEventListener('click', ()=>{ weekCursor.setDate(weekCursor.getDate()+7); renderWeek(); });
+
+/* ==========================================================
+   家計簿タブ描画
+   ========================================================== */
+function renderLedger(){
+  const y = ledgerCursor.getFullYear(), m = ledgerCursor.getMonth()+1;
+  $('l-label').textContent = `${y}年${m}月`;
+  const paydayMap = computePaydayMap();
+  const {income, expense} = monthLedgerTotals(y,m,paydayMap);
+  let shiftPortion = 0;
+  Object.keys(paydayMap).forEach(dateStr=>{
+    const d = parseYMD(dateStr);
+    if(d.getFullYear()===y && d.getMonth()+1===m) shiftPortion += paydayMap[dateStr].total;
+  });
+  $('l-income').textContent = fmtYen(income);
+  $('l-income-sub').textContent = `バイト代 ${fmtYen(shiftPortion)} 含む`;
+  $('l-expense').textContent = fmtYen(expense);
+  const balEl = $('l-balance');
+  balEl.textContent = fmtSignedYen(income-expense);
+  balEl.style.color = (income-expense)>=0 ? 'var(--blue-dark)' : 'var(--pink-dark)';
+
+  // カテゴリ内訳（支出）
+  const catCard = $('l-cat-bars');
+  catCard.innerHTML = '';
+  const monthTxns = txnsInMonth(y,m).filter(t=>t.type==='expense');
+  if(!monthTxns.length){
+    $('l-cat-empty').style.display = 'block';
+  } else {
+    $('l-cat-empty').style.display = 'none';
+    const byCat = {};
+    monthTxns.forEach(t=>{ byCat[t.category] = (byCat[t.category]||0) + Number(t.amount); });
+    const max = Math.max(...Object.values(byCat));
+    Object.entries(byCat).sort((a,b)=>b[1]-a[1]).forEach(([cat,amt])=>{
+      const row = document.createElement('div');
+      row.className = 'cat-bar-row';
+      row.innerHTML = `<div class="cat-bar-top"><span class="cn">${cat}</span><span>${fmtYen(amt)}</span></div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${Math.max(6,(amt/max)*100)}%;"></div></div>`;
+      catCard.appendChild(row);
+    });
+  }
+
+  // 履歴リスト（支払日イベント＋手動取引を日付でまとめる）
+  const listEl = $('l-list');
+  listEl.innerHTML = '';
+  const events = [];
+  Object.keys(paydayMap).forEach(dateStr=>{
+    const d = parseYMD(dateStr);
+    if(d.getFullYear()===y && d.getMonth()+1===m){
+      events.push({date:dateStr, type:'payday', amount:paydayMap[dateStr].total, category:'給料日', memo:`${paydayMap[dateStr].count}件のシフト分`});
+    }
+  });
+  txnsInMonth(y,m).forEach(t=> events.push({date:t.date, type:t.type, amount:Number(t.amount), category:t.category, memo:t.memo, id:t.id}));
+
+  if(!events.length){
+    listEl.innerHTML = '<div class="empty-note">この月の記録はまだありません</div>';
+    return;
+  }
+  events.sort((a,b)=> a.date < b.date ? 1 : -1);
+  let lastDate = null;
+  events.forEach(ev=>{
+    if(ev.date !== lastDate){
+      const head = document.createElement('div');
+      head.className = 'ledger-date-head';
+      const d = parseYMD(ev.date);
+      head.textContent = `${d.getMonth()+1}月${d.getDate()}日(${YOUBI[d.getDay()]})`;
+      listEl.appendChild(head);
+      lastDate = ev.date;
+    }
+    const item = document.createElement('div');
+    const isIncome = ev.type==='income' || ev.type==='payday';
+    item.className = 'ledger-item ' + (isIncome?'income':'expense');
+    const icon = ev.type==='payday' ? '💰' : (isIncome ? '📥' : '📤');
+    item.innerHTML = `
+      <div class="ledger-cat-icon">${icon}</div>
+      <div class="ledger-mid"><div class="lc">${ev.category}</div><div class="lm">${ev.memo||''}</div></div>
+      <div class="ledger-amt">${isIncome?'+':'-'}${fmtYen(ev.amount)}</div>
+    `;
+    if(ev.id){
+      const delBtn = document.createElement('button');
+      delBtn.className = 'ledger-del';
+      delBtn.textContent = '✕';
+      delBtn.addEventListener('click', (e)=>{ e.stopPropagation(); deleteTxn(ev.id); });
+      item.appendChild(delBtn);
+    }
+    listEl.appendChild(item);
+  });
+}
+
+$('l-prev').addEventListener('click', ()=>{ ledgerCursor.setMonth(ledgerCursor.getMonth()-1); renderLedger(); });
+$('l-next').addEventListener('click', ()=>{ ledgerCursor.setMonth(ledgerCursor.getMonth()+1); renderLedger(); });
+
+/* ==========================================================
+   設定タブ
+   ========================================================== */
+function renderSettings(){
+  $('s-wage').value = state.settings.hourlyWage;
+  $('s-closing').value = state.settings.closingDay;
+  $('s-offset').value = state.settings.paydayOffset;
+  $('s-payday').value = state.settings.paydayDay;
+  $('s-rule-preview').textContent = rulePreviewText();
+}
+[$('s-closing'), $('s-offset'), $('s-payday')].forEach(el=>{
+  el.addEventListener('change', ()=>{
+    // ライブプレビューだけ更新（保存は明示的に）
+    const tmp = Object.assign({}, state.settings, {
+      closingDay: $('s-closing').value,
+      paydayOffset: $('s-offset').value,
+      paydayDay: $('s-payday').value
+    });
+    const backup = state.settings;
+    state.settings = tmp;
+    $('s-rule-preview').textContent = rulePreviewText();
+    state.settings = backup;
+  });
+});
+
+$('s-save').addEventListener('click', ()=>{
+  state.settings.hourlyWage = Number($('s-wage').value) || 0;
+  state.settings.closingDay = $('s-closing').value;
+  state.settings.paydayOffset = $('s-offset').value;
+  state.settings.paydayDay = $('s-payday').value;
+  saveState();
+  showToast('設定を保存しました');
+  renderSettings();
+  renderMonth(); renderWeek(); renderLedger();
+});
+
+$('s-export').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `okanebiyori_backup_${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+$('s-import-btn').addEventListener('click', ()=> $('s-import-file').click());
+$('s-import-file').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const parsed = JSON.parse(reader.result);
+      const def = defaultState();
+      state = {
+        settings: Object.assign(def.settings, parsed.settings||{}),
+        shifts: parsed.shifts || [],
+        transactions: parsed.transactions || []
+      };
+      saveState();
+      showToast('データを読み込みました');
+      renderSettings(); renderMonth(); renderWeek(); renderLedger();
+    }catch(err){
+      alert('読み込みに失敗しました。正しいJSONファイルか確認してください。');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+$('s-clear').addEventListener('click', ()=>{
+  if(confirm('本当にすべてのデータを削除しますか？この操作は取り消せません。')){
+    state = defaultState();
+    saveState();
+    showToast('データを削除しました');
+    renderSettings(); renderMonth(); renderWeek(); renderLedger();
+  }
+});
+
+/* ==========================================================
+   トースト
+   ========================================================== */
+let toastTimer = null;
+function showToast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove('show'), 1800);
+}
+
+/* ==========================================================
+   追加モーダル（シフト / 収支）
+   ========================================================== */
+let currentTxnType = 'income';
+let currentTxnCat = INCOME_CATS[0];
+
+function fillCategoryChips(){
+  const wrap = $('tf-cats');
+  wrap.innerHTML = '';
+  const cats = currentTxnType==='income' ? INCOME_CATS : EXPENSE_CATS;
+  if(!cats.includes(currentTxnCat)) currentTxnCat = cats[0];
+  cats.forEach(cat=>{
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip' + (cat===currentTxnCat ? ' active '+currentTxnType : '');
+    chip.textContent = cat;
+    chip.addEventListener('click', ()=>{ currentTxnCat = cat; fillCategoryChips(); });
+    wrap.appendChild(chip);
+  });
+}
+
+$('tf-seg').querySelectorAll('button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    $('tf-seg').querySelectorAll('button').forEach(b=>b.classList.remove('active','income','expense'));
+    btn.classList.add('active', btn.dataset.type);
+    currentTxnType = btn.dataset.type;
+    fillCategoryChips();
+  });
+});
+
+function openAddModal(dateStr, mode){
+  $('sf-date').value = dateStr;
+  $('tf-date').value = dateStr;
+  $('form-shift').style.display = 'none';
+  $('form-txn').style.display = 'none';
+  if(mode==='shift'){ showShiftForm(); }
+  else if(mode==='txn'){ showTxnForm(); }
+  $('modal-add').classList.add('show');
+}
+function showShiftForm(){
+  $('add-modal-title').textContent = 'バイトのシフトを追加';
+  $('form-shift').style.display = 'block';
+  $('form-txn').style.display = 'none';
+  updateShiftPreview();
+}
+function showTxnForm(){
+  $('add-modal-title').textContent = '収入・支出を追加';
+  $('form-shift').style.display = 'none';
+  $('form-txn').style.display = 'block';
+  fillCategoryChips();
+}
+$('qa-shift').addEventListener('click', showShiftForm);
+$('qa-txn').addEventListener('click', showTxnForm);
+$('fab-add').addEventListener('click', ()=> openAddModal(todayStr(), 'shift'));
+$('add-modal-close').addEventListener('click', ()=> $('modal-add').classList.remove('show'));
+$('modal-add').addEventListener('click', (e)=>{ if(e.target.id==='modal-add') $('modal-add').classList.remove('show'); });
+
+function updateShiftPreview(){
+  const tmp = { start:$('sf-start').value, end:$('sf-end').value, breakMin:$('sf-break').value, wage:$('sf-wage').value };
+  const h = shiftHours(tmp);
+  const pay = shiftPay(tmp);
+  $('sf-hours').textContent = h.toFixed(1) + 'h';
+  $('sf-pay').textContent = fmtYen(pay);
+}
+['sf-start','sf-end','sf-break','sf-wage'].forEach(id=> $(id).addEventListener('input', updateShiftPreview));
+
+$('sf-save').addEventListener('click', ()=>{
+  const date = $('sf-date').value;
+  if(!date){ alert('日付を選んでください'); return; }
+  const start = $('sf-start').value, end = $('sf-end').value;
+  if(!start || !end){ alert('時刻を入力してください'); return; }
+  state.shifts.push({
+    id: uid(), date, start, end,
+    breakMin: Number($('sf-break').value)||0,
+    wage: $('sf-wage').value === '' ? null : Number($('sf-wage').value)
+  });
+  saveState();
+  $('modal-add').classList.remove('show');
+  showToast('シフトを保存しました');
+  renderMonth(); renderWeek(); renderLedger();
+  if($('modal-day').classList.contains('show')) openDayModal(date);
+});
+
+$('tf-save').addEventListener('click', ()=>{
+  const date = $('tf-date').value;
+  const amount = Number($('tf-amount').value);
+  if(!date){ alert('日付を選んでください'); return; }
+  if(!amount || amount<=0){ alert('金額を入力してください'); return; }
+  state.transactions.push({
+    id: uid(), date, type: currentTxnType, category: currentTxnCat,
+    amount, memo: $('tf-memo').value.trim()
+  });
+  saveState();
+  $('modal-add').classList.remove('show');
+  $('tf-amount').value = ''; $('tf-memo').value = '';
+  showToast('保存しました');
+  renderMonth(); renderWeek(); renderLedger();
+  if($('modal-day').classList.contains('show')) openDayModal(date);
+});
+
+/* ==========================================================
+   日別詳細モーダル
+   ========================================================== */
+let currentDayStr = null;
+
+function openDayModal(dateStr){
+  currentDayStr = dateStr;
+  const d = parseYMD(dateStr);
+  $('day-modal-title').textContent = `${d.getMonth()+1}月${d.getDate()}日(${YOUBI[d.getDay()]})`;
+  renderDayDetail(dateStr);
+  $('modal-day').classList.add('show');
+}
+function renderDayDetail(dateStr){
+  const wrap = $('day-detail-list');
+  wrap.innerHTML = '';
+  const paydayMap = computePaydayMap();
+  const dayShifts = shiftsOnDate(dateStr);
+  const dayTxns = txnsOnDate(dateStr);
+  const payday = paydayMap[dateStr];
+
+  if(!dayShifts.length && !dayTxns.length && !payday){
+    wrap.innerHTML = '<div class="empty-note">この日の記録はまだありません</div>';
+    return;
+  }
+  if(payday){
+    const row = document.createElement('div');
+    row.className = 'day-detail-item';
+    row.innerHTML = `<div class="ddi-main"><div class="ddi-t">💰 給料日</div><div class="ddi-s">${payday.count}件のシフト分</div></div>`;
+    const amt = document.createElement('span'); amt.style.fontWeight='800'; amt.style.color='var(--blue-dark)';
+    amt.textContent = fmtYen(payday.total);
+    row.appendChild(amt);
+    wrap.appendChild(row);
+  }
+  dayShifts.forEach(s=>{
+    const row = document.createElement('div');
+    row.className = 'day-detail-item';
+    row.innerHTML = `<div class="ddi-main"><div class="ddi-t">バイト ${s.start}-${s.end}</div><div class="ddi-s">${shiftHours(s).toFixed(1)}h・時給${fmtYen(shiftWage(s))}・${fmtYen(shiftPay(s))}</div></div>`;
+    const actions = document.createElement('div');
+    actions.className = 'ddi-actions';
+    const del = document.createElement('button');
+    del.textContent = '削除';
+    del.addEventListener('click', ()=> deleteShift(s.id));
+    actions.appendChild(del);
+    row.appendChild(actions);
+    wrap.appendChild(row);
+  });
+  dayTxns.forEach(t=>{
+    const row = document.createElement('div');
+    row.className = 'day-detail-item';
+    row.innerHTML = `<div class="ddi-main"><div class="ddi-t">${t.type==='income'?'📥':'📤'} ${t.category}</div><div class="ddi-s">${t.memo||''}　${(t.type==='expense'?'-':'+')}${fmtYen(t.amount)}</div></div>`;
+    const actions = document.createElement('div');
+    actions.className = 'ddi-actions';
+    const del = document.createElement('button');
+    del.textContent = '削除';
+    del.addEventListener('click', ()=> deleteTxn(t.id));
+    actions.appendChild(del);
+    row.appendChild(actions);
+    wrap.appendChild(row);
+  });
+}
+$('day-modal-close').addEventListener('click', ()=> $('modal-day').classList.remove('show'));
+$('modal-day').addEventListener('click', (e)=>{ if(e.target.id==='modal-day') $('modal-day').classList.remove('show'); });
+$('day-add-shift').addEventListener('click', ()=> openAddModal(currentDayStr, 'shift'));
+$('day-add-txn').addEventListener('click', ()=> openAddModal(currentDayStr, 'txn'));
+
+function deleteShift(id){
+  state.shifts = state.shifts.filter(s=>s.id!==id);
+  saveState();
+  showToast('削除しました');
+  renderDayDetail(currentDayStr);
+  renderMonth(); renderWeek(); renderLedger();
+}
+function deleteTxn(id){
+  state.transactions = state.transactions.filter(t=>t.id!==id);
+  saveState();
+  showToast('削除しました');
+  if($('modal-day').classList.contains('show')) renderDayDetail(currentDayStr);
+  renderMonth(); renderWeek(); renderLedger();
+}
+
+/* ==========================================================
+   初期化
+   ========================================================== */
+renderMonth();
+renderWeek();
+renderLedger();
+renderSettings();
