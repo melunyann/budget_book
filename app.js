@@ -316,6 +316,8 @@ $('m-next').addEventListener('click', ()=>{ monthCursor.setMonth(monthCursor.get
 /* ==========================================================
    週カレンダー描画
    ========================================================== */
+const WEEK_PX_PER_HOUR = 52;
+
 function renderWeek(){
   const paydayMap = computePaydayMap();
   const start = new Date(weekCursor);
@@ -324,65 +326,101 @@ function renderWeek(){
   $('w-label').textContent = `${fmtShort(start)} - ${fmtShort(end)}`;
 
   const today = todayStr();
+  const dayInfos = [];
   let weekShiftTotal = 0, weekIncome = 0, weekExpense = 0;
-  const list = $('week-list');
-  list.innerHTML = '';
+
+  // その週の全シフトから表示範囲(時間帯)を決める。シフトが無ければ 9:00-18:00 をデフォルトに。
+  let rangeStart = 9, rangeEnd = 18;
+  const weekShifts = [];
+  for(let i=0;i<7;i++){
+    const d = new Date(start); d.setDate(d.getDate()+i);
+    const dateStr = ymdFromDate(d);
+    shiftsOnDate(dateStr).forEach(s=>{
+      const [sh,sm] = s.start.split(':').map(Number);
+      const [eh,em] = s.end.split(':').map(Number);
+      let endHour = eh + em/60; if(endHour <= sh + sm/60) endHour += 24; // overnight
+      weekShifts.push({dateStr, s, startHour: sh+sm/60, endHour});
+    });
+  }
+  if(weekShifts.length){
+    rangeStart = Math.floor(Math.min(...weekShifts.map(w=>w.startHour), rangeStart));
+    rangeEnd = Math.ceil(Math.max(...weekShifts.map(w=>w.endHour), rangeEnd));
+  }
+  rangeStart = Math.max(0, rangeStart - 1);
+  rangeEnd = Math.min(30, rangeEnd + 1); // 30時までは深夜シフトも一応許容
+  const totalHours = rangeEnd - rangeStart;
+  const gridHeight = Math.round(totalHours * WEEK_PX_PER_HOUR);
+
+  // ---- 曜日ヘッダー ----
+  const headRow = $('week-head-row');
+  headRow.innerHTML = '';
+  const axisSpacer = document.createElement('div');
+  axisSpacer.className = 'week-head-cell hd-axis';
+  headRow.appendChild(axisSpacer);
 
   for(let i=0;i<7;i++){
     const d = new Date(start); d.setDate(d.getDate()+i);
     const dateStr = ymdFromDate(d);
-    const row = document.createElement('div');
-    row.className = 'week-day-row' + (dateStr===today?' today':'');
-
-    const dateCol = document.createElement('div');
-    dateCol.className = 'wd-date';
-    dateCol.innerHTML = `<div class="wd-name">${YOUBI[d.getDay()]}</div><div class="wd-num">${d.getDate()}</div>`;
-    row.appendChild(dateCol);
-
-    const body = document.createElement('div');
-    body.className = 'wd-body';
-
-    const dayShifts = shiftsOnDate(dateStr);
+    const isToday = dateStr === today;
     const dayTxns = txnsOnDate(dateStr);
     const isPayday = !!paydayMap[dateStr];
+    if(isPayday) weekIncome += paydayMap[dateStr].total;
+    dayTxns.forEach(t=>{ if(t.type==='income') weekIncome += Number(t.amount); else weekExpense += Number(t.amount); });
 
-    if(!dayShifts.length && !dayTxns.length && !isPayday){
-      body.innerHTML = '<div class="wd-empty">記録なし</div>';
-    } else {
-      if(isPayday){
-        weekIncome += paydayMap[dateStr].total;
-        const item = document.createElement('div');
-        item.className = 'wd-item';
-        item.innerHTML = `<div class="ddi-main"><div class="tt">給料日</div></div>`;
-        const amt = document.createElement('span'); amt.className='wd-amt payday'; amt.textContent = fmtYen(paydayMap[dateStr].total);
-        item.appendChild(amt);
-        body.appendChild(item);
-      }
-      dayShifts.forEach(s=>{
-        const pay = shiftPay(s);
-        weekShiftTotal += pay;
-        const item = document.createElement('div');
-        item.className = 'wd-item';
-        item.innerHTML = `<div class="wd-item-main"><div class="tt">バイト ${s.start}-${s.end}</div><div class="sub">${shiftHours(s).toFixed(1)}h・時給${fmtYen(shiftWage(s))}</div></div>`;
-        const amt = document.createElement('span'); amt.className='wd-amt shift'; amt.textContent = fmtYen(pay);
-        item.appendChild(amt);
-        body.appendChild(item);
-      });
-      dayTxns.forEach(t=>{
-        if(t.type==='income') weekIncome += Number(t.amount); else weekExpense += Number(t.amount);
-        const item = document.createElement('div');
-        item.className = 'wd-item';
-        item.innerHTML = `<div class="wd-item-main"><div class="tt">${t.category}</div><div class="sub">${t.memo||''}</div></div>`;
-        const amt = document.createElement('span'); amt.className='wd-amt ' + t.type; amt.textContent = (t.type==='expense'?'-':'+') + fmtYen(t.amount);
-        item.appendChild(amt);
-        body.appendChild(item);
-      });
+    const cell = document.createElement('div');
+    cell.className = 'week-head-cell' + (isToday ? ' today' : '');
+    let html = `<div class="wh-day">${YOUBI[d.getDay()]}</div><div class="wh-num">${d.getDate()}</div>`;
+    if(dayTxns.length){
+      html += '<div class="wh-dots">' + dayTxns.slice(0,4).map(t=>`<span class="dot ${t.type}"></span>`).join('') + '</div>';
     }
-    row.appendChild(body);
-    row.addEventListener('click', (e)=>{ openDayModal(dateStr); });
-    list.appendChild(row);
+    if(isPayday){ html += `<div class="wh-payday">給料日</div>`; }
+    cell.innerHTML = html;
+    cell.addEventListener('click', ()=> openDayModal(dateStr));
+    headRow.appendChild(cell);
+    dayInfos.push({dateStr, isToday});
   }
 
+  // ---- 時間軸 ----
+  const axis = $('week-axis');
+  axis.innerHTML = '';
+  axis.style.height = gridHeight + 'px';
+  for(let h = Math.ceil(rangeStart); h <= Math.floor(rangeEnd); h++){
+    const label = document.createElement('div');
+    label.className = 'axis-label';
+    label.style.top = Math.round((h - rangeStart) * WEEK_PX_PER_HOUR) + 'px';
+    label.textContent = (h % 24) + '時';
+    axis.appendChild(label);
+  }
+
+  // ---- 日ごとのカラム ----
+  const track = $('week-days-track');
+  track.innerHTML = '';
+  track.style.height = gridHeight + 'px';
+  const lineBg = `repeating-linear-gradient(to bottom, var(--border), var(--border) 1px, transparent 1px, transparent ${WEEK_PX_PER_HOUR}px)`;
+
+  dayInfos.forEach(info=>{
+    const col = document.createElement('div');
+    col.className = 'week-day-col' + (info.isToday ? ' today-col' : '');
+    col.style.backgroundImage = lineBg;
+    col.addEventListener('click', ()=> openDayModal(info.dateStr));
+
+    weekShifts.filter(w=>w.dateStr===info.dateStr).forEach(w=>{
+      const pay = shiftPay(w.s);
+      weekShiftTotal += pay;
+      const top = Math.round((w.startHour - rangeStart) * WEEK_PX_PER_HOUR);
+      const height = Math.max(22, Math.round((w.endHour - w.startHour) * WEEK_PX_PER_HOUR) - 2);
+      const block = document.createElement('div');
+      block.className = 'week-shift-block';
+      block.style.top = top + 'px';
+      block.style.height = height + 'px';
+      block.innerHTML = `<span class="wsb-time">${w.s.start}-${w.s.end}</span>${fmtYen(pay)}`;
+      block.addEventListener('click', (e)=>{ e.stopPropagation(); openDayModal(info.dateStr); });
+      col.appendChild(block);
+    });
+    track.appendChild(col);
+  });
+
+  $('week-empty-note').style.display = weekShifts.length ? 'none' : 'block';
   $('w-shift-total').textContent = fmtYen(weekShiftTotal);
   $('w-balance').textContent = fmtSignedYen(weekIncome - weekExpense);
 }
@@ -391,9 +429,39 @@ $('w-prev').addEventListener('click', ()=>{ weekCursor.setDate(weekCursor.getDat
 $('w-next').addEventListener('click', ()=>{ weekCursor.setDate(weekCursor.getDate()+7); renderWeek(); });
 
 /* ==========================================================
-   家計簿タブ描画
+   家計簿タブ描画（月表示 / 年表示、経費の絞り込み）
    ========================================================== */
+let ledgerMode = 'month';   // 'month' | 'year'
+let ledgerFilter = 'all';   // 'all' | 'biz' | 'nonbiz'
+let yearCursor = new Date().getFullYear();
+
+function matchesBizFilter(t){
+  if(ledgerFilter==='all') return true;
+  if(ledgerFilter==='biz') return !!t.isBiz;
+  return !t.isBiz; // 'nonbiz'
+}
+
+function renderCatBars(container, emptyEl, txns, labelExtra){
+  container.innerHTML = '';
+  if(!txns.length){ emptyEl.style.display = 'block'; return; }
+  emptyEl.style.display = 'none';
+  const byCat = {};
+  txns.forEach(t=>{ byCat[t.category] = (byCat[t.category]||0) + Number(t.amount); });
+  const max = Math.max(...Object.values(byCat));
+  Object.entries(byCat).sort((a,b)=>b[1]-a[1]).forEach(([cat,amt])=>{
+    const row = document.createElement('div');
+    row.className = 'cat-bar-row';
+    row.innerHTML = `<div class="cat-bar-top"><span class="cn">${cat}</span><span>${fmtYen(amt)}</span></div>
+      <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${Math.max(6,(amt/max)*100)}%;"></div></div>`;
+    container.appendChild(row);
+  });
+}
+
 function renderLedger(){
+  if(ledgerMode==='month') renderLedgerMonth(); else renderLedgerYear();
+}
+
+function renderLedgerMonth(){
   const y = ledgerCursor.getFullYear(), m = ledgerCursor.getMonth()+1;
   $('l-label').textContent = `${y}年${m}月`;
   const paydayMap = computePaydayMap();
@@ -403,34 +471,21 @@ function renderLedger(){
     const d = parseYMD(dateStr);
     if(d.getFullYear()===y && d.getMonth()+1===m) shiftPortion += paydayMap[dateStr].total;
   });
+  const bizTotal = txnsInMonth(y,m).filter(t=>t.type==='expense' && t.isBiz).reduce((a,t)=>a+Number(t.amount),0);
+
   $('l-income').textContent = fmtYen(income);
   $('l-income-sub').textContent = `バイト代 ${fmtYen(shiftPortion)} 含む`;
   $('l-expense').textContent = fmtYen(expense);
+  $('l-biz-sub').textContent = `うち経費 ${fmtYen(bizTotal)}`;
   const balEl = $('l-balance');
   balEl.textContent = fmtSignedYen(income-expense);
   balEl.style.color = (income-expense)>=0 ? 'var(--blue-dark)' : 'var(--pink-dark)';
 
-  // カテゴリ内訳（支出）
-  const catCard = $('l-cat-bars');
-  catCard.innerHTML = '';
-  const monthTxns = txnsInMonth(y,m).filter(t=>t.type==='expense');
-  if(!monthTxns.length){
-    $('l-cat-empty').style.display = 'block';
-  } else {
-    $('l-cat-empty').style.display = 'none';
-    const byCat = {};
-    monthTxns.forEach(t=>{ byCat[t.category] = (byCat[t.category]||0) + Number(t.amount); });
-    const max = Math.max(...Object.values(byCat));
-    Object.entries(byCat).sort((a,b)=>b[1]-a[1]).forEach(([cat,amt])=>{
-      const row = document.createElement('div');
-      row.className = 'cat-bar-row';
-      row.innerHTML = `<div class="cat-bar-top"><span class="cn">${cat}</span><span>${fmtYen(amt)}</span></div>
-        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${Math.max(6,(amt/max)*100)}%;"></div></div>`;
-      catCard.appendChild(row);
-    });
-  }
+  // カテゴリ内訳（支出・絞り込み反映）
+  const filteredExpense = txnsInMonth(y,m).filter(t=>t.type==='expense' && matchesBizFilter(t));
+  renderCatBars($('l-cat-bars'), $('l-cat-empty'), filteredExpense);
 
-  // 履歴リスト（支払日イベント＋手動取引を日付でまとめる）
+  // 履歴リスト（支払日イベント＋収入は常に表示／支出は絞り込みを反映）
   const listEl = $('l-list');
   listEl.innerHTML = '';
   const events = [];
@@ -440,10 +495,13 @@ function renderLedger(){
       events.push({date:dateStr, type:'payday', amount:paydayMap[dateStr].total, category:'給料日', memo:`${paydayMap[dateStr].count}件のシフト分`});
     }
   });
-  txnsInMonth(y,m).forEach(t=> events.push({date:t.date, type:t.type, amount:Number(t.amount), category:t.category, memo:t.memo, id:t.id}));
+  txnsInMonth(y,m).forEach(t=>{
+    if(t.type==='expense' && !matchesBizFilter(t)) return;
+    events.push({date:t.date, type:t.type, amount:Number(t.amount), category:t.category, memo:t.memo, id:t.id, isBiz:t.isBiz});
+  });
 
   if(!events.length){
-    listEl.innerHTML = '<div class="empty-note">この月の記録はまだありません</div>';
+    listEl.innerHTML = '<div class="empty-note">条件に合う記録がありません</div>';
     return;
   }
   events.sort((a,b)=> a.date < b.date ? 1 : -1);
@@ -461,9 +519,10 @@ function renderLedger(){
     const isIncome = ev.type==='income' || ev.type==='payday';
     item.className = 'ledger-item ' + (isIncome?'income':'expense');
     const icon = ev.type==='payday' ? '💰' : (isIncome ? '📥' : '📤');
+    const bizTag = ev.isBiz ? ' <span style="font-size:10px;color:var(--pink-dark);">🧾経費</span>' : '';
     item.innerHTML = `
       <div class="ledger-cat-icon">${icon}</div>
-      <div class="ledger-mid"><div class="lc">${ev.category}</div><div class="lm">${ev.memo||''}</div></div>
+      <div class="ledger-mid"><div class="lc">${ev.category}${bizTag}</div><div class="lm">${ev.memo||''}</div></div>
       <div class="ledger-amt">${isIncome?'+':'-'}${fmtYen(ev.amount)}</div>
     `;
     if(ev.id){
@@ -477,8 +536,89 @@ function renderLedger(){
   });
 }
 
+function renderLedgerYear(){
+  const y = yearCursor;
+  $('y-label').textContent = `${y}年`;
+  const paydayMap = computePaydayMap();
+
+  let yearIncome = 0, yearExpense = 0, yearShiftPortion = 0;
+  const monthRows = [];
+  for(let m=1; m<=12; m++){
+    const {income, expense} = monthLedgerTotals(y,m,paydayMap);
+    yearIncome += income; yearExpense += expense;
+    Object.keys(paydayMap).forEach(dateStr=>{
+      const d = parseYMD(dateStr);
+      if(d.getFullYear()===y && d.getMonth()+1===m) yearShiftPortion += paydayMap[dateStr].total;
+    });
+    monthRows.push({m, income, expense});
+  }
+  const yearBizTotal = state.transactions.filter(t=>{
+    const d = parseYMD(t.date);
+    return t.type==='expense' && t.isBiz && d.getFullYear()===y;
+  }).reduce((a,t)=>a+Number(t.amount),0);
+
+  $('y-income').textContent = fmtYen(yearIncome);
+  $('y-income-sub').textContent = `バイト代 ${fmtYen(yearShiftPortion)} 含む`;
+  $('y-expense').textContent = fmtYen(yearExpense);
+  $('y-biz-sub').textContent = `うち経費 ${fmtYen(yearBizTotal)}`;
+  const balEl = $('y-balance');
+  balEl.textContent = fmtSignedYen(yearIncome - yearExpense);
+  balEl.style.color = (yearIncome-yearExpense)>=0 ? 'var(--blue-dark)' : 'var(--pink-dark)';
+
+  // 収入の内訳（項目ごと）：バイト代(給料日ベース) + 手動収入カテゴリ
+  const incomeRows = [];
+  if(yearShiftPortion>0) incomeRows.push({category:'バイト代(給料日ベース)', amount:yearShiftPortion});
+  const manualIncome = state.transactions.filter(t=> t.type==='income' && parseYMD(t.date).getFullYear()===y);
+  const incByCat = {};
+  manualIncome.forEach(t=>{ incByCat[t.category] = (incByCat[t.category]||0) + Number(t.amount); });
+  Object.entries(incByCat).forEach(([cat,amt])=> incomeRows.push({category:cat, amount:amt}));
+  renderCatBars($('y-income-bars'), $('y-income-empty'), incomeRows.map(r=>({category:r.category, amount:r.amount})));
+
+  // 支出の内訳（項目ごと・絞り込み反映）
+  const yearExpenseTxns = state.transactions.filter(t=> t.type==='expense' && parseYMD(t.date).getFullYear()===y && matchesBizFilter(t));
+  renderCatBars($('y-expense-bars'), $('y-expense-empty'), yearExpenseTxns);
+
+  // 月ごとの推移テーブル
+  const tbody = $('y-month-table');
+  tbody.innerHTML = '';
+  const curM = (new Date()).getMonth()+1, curY = (new Date()).getFullYear();
+  monthRows.forEach(r=>{
+    const tr = document.createElement('tr');
+    if(y===curY && r.m===curM) tr.className = 'cur-month';
+    const bal = r.income - r.expense;
+    tr.innerHTML = `<td>${r.m}月</td><td class="inc">${fmtYen(r.income)}</td><td class="exp">${fmtYen(r.expense)}</td><td>${fmtSignedYen(bal)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
 $('l-prev').addEventListener('click', ()=>{ ledgerCursor.setMonth(ledgerCursor.getMonth()-1); renderLedger(); });
 $('l-next').addEventListener('click', ()=>{ ledgerCursor.setMonth(ledgerCursor.getMonth()+1); renderLedger(); });
+$('y-prev').addEventListener('click', ()=>{ yearCursor -= 1; renderLedger(); });
+$('y-next').addEventListener('click', ()=>{ yearCursor += 1; renderLedger(); });
+
+$('l-mode-seg').querySelectorAll('button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    $('l-mode-seg').querySelectorAll('button').forEach(b=>b.classList.remove('active','income'));
+    btn.classList.add('active','income');
+    ledgerMode = btn.dataset.mode;
+    $('ledger-month-view').style.display = ledgerMode==='month' ? 'block' : 'none';
+    $('ledger-year-view').style.display = ledgerMode==='year' ? 'block' : 'none';
+    renderLedger();
+  });
+});
+
+function setLedgerFilter(f){
+  ledgerFilter = f;
+  [$('l-filter-seg'), $('y-filter-seg')].forEach(seg=>{
+    seg.querySelectorAll('button').forEach(b=> b.classList.toggle('active', b.dataset.f===f));
+  });
+  renderLedger();
+}
+[$('l-filter-seg'), $('y-filter-seg')].forEach(seg=>{
+  seg.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=> setLedgerFilter(btn.dataset.f));
+  });
+});
 
 /* ==========================================================
    設定タブ
@@ -575,6 +715,7 @@ function showToast(msg){
    ========================================================== */
 let currentTxnType = 'income';
 let currentTxnCat = INCOME_CATS[0];
+let currentTxnIsBiz = false;
 
 function fillCategoryChips(){
   const wrap = $('tf-cats');
@@ -589,7 +730,17 @@ function fillCategoryChips(){
     chip.addEventListener('click', ()=>{ currentTxnCat = cat; fillCategoryChips(); });
     wrap.appendChild(chip);
   });
+  $('tf-biz-field').style.display = currentTxnType==='expense' ? 'block' : 'none';
+  if(currentTxnType!=='expense') currentTxnIsBiz = false;
+  updateBizToggleUI();
 }
+function updateBizToggleUI(){
+  $('tf-biz-toggle').classList.toggle('active', currentTxnIsBiz);
+}
+$('tf-biz-toggle').addEventListener('click', ()=>{
+  currentTxnIsBiz = !currentTxnIsBiz;
+  updateBizToggleUI();
+});
 
 $('tf-seg').querySelectorAll('button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -619,6 +770,7 @@ function showTxnForm(){
   $('add-modal-title').textContent = '収入・支出を追加';
   $('form-shift').style.display = 'none';
   $('form-txn').style.display = 'block';
+  currentTxnIsBiz = false;
   fillCategoryChips();
 }
 $('qa-shift').addEventListener('click', showShiftForm);
@@ -660,7 +812,8 @@ $('tf-save').addEventListener('click', ()=>{
   if(!amount || amount<=0){ alert('金額を入力してください'); return; }
   state.transactions.push({
     id: uid(), date, type: currentTxnType, category: currentTxnCat,
-    amount, memo: $('tf-memo').value.trim()
+    amount, memo: $('tf-memo').value.trim(),
+    isBiz: currentTxnType==='expense' ? currentTxnIsBiz : false
   });
   saveState();
   $('modal-add').classList.remove('show');
@@ -719,7 +872,8 @@ function renderDayDetail(dateStr){
   dayTxns.forEach(t=>{
     const row = document.createElement('div');
     row.className = 'day-detail-item';
-    row.innerHTML = `<div class="ddi-main"><div class="ddi-t">${t.type==='income'?'📥':'📤'} ${t.category}</div><div class="ddi-s">${t.memo||''}　${(t.type==='expense'?'-':'+')}${fmtYen(t.amount)}</div></div>`;
+    const bizTag = t.isBiz ? ' <span style="color:var(--pink-dark);font-weight:700;">🧾経費</span>' : '';
+    row.innerHTML = `<div class="ddi-main"><div class="ddi-t">${t.type==='income'?'📥':'📤'} ${t.category}${bizTag}</div><div class="ddi-s">${t.memo||''}　${(t.type==='expense'?'-':'+')}${fmtYen(t.amount)}</div></div>`;
     const actions = document.createElement('div');
     actions.className = 'ddi-actions';
     const del = document.createElement('button');
