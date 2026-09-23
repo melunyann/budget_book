@@ -20,8 +20,11 @@ function defaultState(){
       paydayOffset: 1,     // 0,1,2 ヶ月後
       paydayDay: 25        // 'end' or 1-31
     },
-    shifts: [],      // {id, date:'YYYY-MM-DD', start:'HH:MM', end:'HH:MM', breakMin, wage(optional)}
-    transactions: [] // {id, date, type:'income'|'expense', category, amount, memo}
+    shifts: [],        // {id, date:'YYYY-MM-DD', start:'HH:MM', end:'HH:MM', breakMin, wage(optional)}
+    transactions: [],   // {id, date, type:'income'|'expense', category, amount, memo, isBiz}
+    events: [],         // {id, date, time:'HH:MM'|null, title, memo}
+    shiftPatterns: [],  // {id, name, start, end, breakMin, wage}
+    lastShiftInput: null // {start, end, breakMin, wage} 直近に保存したシフトの内容
   };
 }
 
@@ -36,7 +39,10 @@ function loadState(){
     return {
       settings: Object.assign(def.settings, parsed.settings || {}),
       shifts: parsed.shifts || [],
-      transactions: parsed.transactions || []
+      transactions: parsed.transactions || [],
+      events: parsed.events || [],
+      shiftPatterns: parsed.shiftPatterns || [],
+      lastShiftInput: parsed.lastShiftInput || null
     };
   }catch(e){
     console.error('load error', e);
@@ -163,6 +169,14 @@ function rulePreviewText(){
 
 function shiftsOnDate(dateStr){ return state.shifts.filter(s=>s.date===dateStr); }
 function txnsOnDate(dateStr){ return state.transactions.filter(t=>t.date===dateStr); }
+function eventsOnDate(dateStr){
+  return state.events.filter(e=>e.date===dateStr).sort((a,b)=>{
+    if(!a.time && !b.time) return 0;
+    if(!a.time) return 1;
+    if(!b.time) return -1;
+    return a.time < b.time ? -1 : 1;
+  });
+}
 function shiftsInMonth(y,m){
   return state.shifts.filter(s=>{
     const d = parseYMD(s.date);
@@ -277,6 +291,14 @@ function renderMonth(){
         pill.textContent = '給料 ' + fmtYen(paydayMap[c.dateStr].total);
         cell.appendChild(pill);
       }
+      const dayEvents = eventsOnDate(c.dateStr);
+      if(dayEvents.length){
+        const pill = document.createElement('div');
+        pill.className = 'day-pill event';
+        const extra = dayEvents.length>1 ? ` +${dayEvents.length-1}` : '';
+        pill.textContent = '📅' + dayEvents[0].title + extra;
+        cell.appendChild(pill);
+      }
       const dayTxns = txnsOnDate(c.dateStr);
       if(dayTxns.length){
         const dots = document.createElement('div');
@@ -374,6 +396,11 @@ function renderWeek(){
       html += '<div class="wh-dots">' + dayTxns.slice(0,4).map(t=>`<span class="dot ${t.type}"></span>`).join('') + '</div>';
     }
     if(isPayday){ html += `<div class="wh-payday">給料日</div>`; }
+    const dayEvents = eventsOnDate(dateStr);
+    if(dayEvents.length){
+      html += '<div class="wh-events">' + dayEvents.slice(0,2).map(ev=>`<div class="wh-event-chip">${ev.time?ev.time+' ':''}${ev.title}</div>`).join('') +
+        (dayEvents.length>2 ? `<div class="wh-event-chip">+${dayEvents.length-2}件</div>` : '') + '</div>';
+    }
     cell.innerHTML = html;
     cell.addEventListener('click', ()=> openDayModal(dateStr));
     headRow.appendChild(cell);
@@ -526,6 +553,8 @@ function renderLedgerMonth(){
       <div class="ledger-amt">${isIncome?'+':'-'}${fmtYen(ev.amount)}</div>
     `;
     if(ev.id){
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', ()=> openAddModal(ev.date, 'txn', ev.id));
       const delBtn = document.createElement('button');
       delBtn.className = 'ledger-del';
       delBtn.textContent = '✕';
@@ -677,7 +706,10 @@ $('s-import-file').addEventListener('change', (e)=>{
       state = {
         settings: Object.assign(def.settings, parsed.settings||{}),
         shifts: parsed.shifts || [],
-        transactions: parsed.transactions || []
+        transactions: parsed.transactions || [],
+        events: parsed.events || [],
+        shiftPatterns: parsed.shiftPatterns || [],
+        lastShiftInput: parsed.lastShiftInput || null
       };
       saveState();
       showToast('データを読み込みました');
@@ -711,11 +743,12 @@ function showToast(msg){
 }
 
 /* ==========================================================
-   追加モーダル（シフト / 収支）
+   追加モーダル（シフト / 収支 / 予定）※編集にも対応
    ========================================================== */
 let currentTxnType = 'income';
 let currentTxnCat = INCOME_CATS[0];
 let currentTxnIsBiz = false;
+let editContext = null; // {kind:'shift'|'txn'|'event', id}
 
 function fillCategoryChips(){
   const wrap = $('tf-cats');
@@ -742,42 +775,111 @@ $('tf-biz-toggle').addEventListener('click', ()=>{
   updateBizToggleUI();
 });
 
+function setTxnSegUI(type){
+  $('tf-seg').querySelectorAll('button').forEach(b=>{
+    b.classList.remove('active','income','expense');
+    if(b.dataset.type===type) b.classList.add('active', type);
+  });
+}
 $('tf-seg').querySelectorAll('button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
-    $('tf-seg').querySelectorAll('button').forEach(b=>b.classList.remove('active','income','expense'));
-    btn.classList.add('active', btn.dataset.type);
     currentTxnType = btn.dataset.type;
+    setTxnSegUI(currentTxnType);
     fillCategoryChips();
   });
 });
 
-function openAddModal(dateStr, mode){
+function openAddModal(dateStr, mode, editId){
+  editContext = editId ? {kind:mode, id:editId} : null;
   $('sf-date').value = dateStr;
   $('tf-date').value = dateStr;
+  $('ef-date').value = dateStr;
   $('form-shift').style.display = 'none';
   $('form-txn').style.display = 'none';
-  if(mode==='shift'){ showShiftForm(); }
-  else if(mode==='txn'){ showTxnForm(); }
+  $('form-event').style.display = 'none';
+  if(mode==='shift'){ showShiftForm(editId); }
+  else if(mode==='txn'){ showTxnForm(editId); }
+  else if(mode==='event'){ showEventForm(editId); }
   $('modal-add').classList.add('show');
 }
-function showShiftForm(){
-  $('add-modal-title').textContent = 'バイトのシフトを追加';
+
+function showShiftForm(editId){
+  $('add-modal-title').textContent = editId ? 'シフトを編集' : 'バイトのシフトを追加';
   $('form-shift').style.display = 'block';
   $('form-txn').style.display = 'none';
+  $('form-event').style.display = 'none';
+  renderShiftPatternChips();
+  if(editId){
+    const s = state.shifts.find(x=>x.id===editId);
+    if(s){
+      $('sf-date').value = s.date;
+      $('sf-start').value = s.start;
+      $('sf-end').value = s.end;
+      $('sf-break').value = s.breakMin;
+      $('sf-wage').value = (s.wage===null || s.wage===undefined) ? '' : s.wage;
+    }
+  } else {
+    const last = state.lastShiftInput;
+    $('sf-start').value = last ? last.start : '09:00';
+    $('sf-end').value = last ? last.end : '17:00';
+    $('sf-break').value = last ? last.breakMin : 0;
+    $('sf-wage').value = (last && last.wage!=null) ? last.wage : '';
+  }
+  $('sf-save').textContent = editId ? 'この内容で更新する' : 'シフトを保存';
   updateShiftPreview();
 }
-function showTxnForm(){
-  $('add-modal-title').textContent = '収入・支出を追加';
+
+function showTxnForm(editId){
+  $('add-modal-title').textContent = editId ? '収入・支出を編集' : '収入・支出を追加';
   $('form-shift').style.display = 'none';
   $('form-txn').style.display = 'block';
-  currentTxnIsBiz = false;
+  $('form-event').style.display = 'none';
+  if(editId){
+    const t = state.transactions.find(x=>x.id===editId);
+    if(t){
+      currentTxnType = t.type;
+      currentTxnCat = t.category;
+      currentTxnIsBiz = !!t.isBiz;
+      $('tf-amount').value = t.amount;
+      $('tf-memo').value = t.memo || '';
+    }
+  } else {
+    currentTxnIsBiz = false;
+    $('tf-amount').value = '';
+    $('tf-memo').value = '';
+  }
+  setTxnSegUI(currentTxnType);
   fillCategoryChips();
+  $('tf-save').textContent = editId ? 'この内容で更新する' : '保存する';
 }
-$('qa-shift').addEventListener('click', showShiftForm);
-$('qa-txn').addEventListener('click', showTxnForm);
+
+function showEventForm(editId){
+  $('add-modal-title').textContent = editId ? '予定を編集' : '予定を追加';
+  $('form-shift').style.display = 'none';
+  $('form-txn').style.display = 'none';
+  $('form-event').style.display = 'block';
+  if(editId){
+    const ev = state.events.find(x=>x.id===editId);
+    if(ev){
+      $('ef-title').value = ev.title;
+      $('ef-time').value = ev.time || '';
+      $('ef-memo').value = ev.memo || '';
+    }
+  } else {
+    $('ef-title').value = '';
+    $('ef-time').value = '';
+    $('ef-memo').value = '';
+  }
+  $('ef-save').textContent = editId ? 'この内容で更新する' : '予定を保存';
+}
+
+$('qa-shift').addEventListener('click', ()=>{ editContext=null; showShiftForm(); });
+$('qa-txn').addEventListener('click', ()=>{ editContext=null; showTxnForm(); });
+$('qa-event').addEventListener('click', ()=>{ editContext=null; showEventForm(); });
 $('fab-add').addEventListener('click', ()=> openAddModal(todayStr(), 'shift'));
 $('add-modal-close').addEventListener('click', ()=> $('modal-add').classList.remove('show'));
 $('modal-add').addEventListener('click', (e)=>{ if(e.target.id==='modal-add') $('modal-add').classList.remove('show'); });
+$('ef-clear-time').addEventListener('click', ()=> { $('ef-time').value=''; });
 
 function updateShiftPreview(){
   const tmp = { start:$('sf-start').value, end:$('sf-end').value, breakMin:$('sf-break').value, wage:$('sf-wage').value };
@@ -788,19 +890,78 @@ function updateShiftPreview(){
 }
 ['sf-start','sf-end','sf-break','sf-wage'].forEach(id=> $(id).addEventListener('input', updateShiftPreview));
 
+/* ---- よく使うシフトパターン ---- */
+function renderShiftPatternChips(){
+  const wrap = $('sf-pattern-chips');
+  wrap.innerHTML = '';
+  if(!state.shiftPatterns.length){
+    wrap.innerHTML = '<span style="font-size:11px;color:var(--text-faint);">まだ保存されたパターンはありません</span>';
+    return;
+  }
+  state.shiftPatterns.forEach(p=>{
+    const box = document.createElement('span');
+    box.className = 'pattern-chip-wrap';
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.textContent = `${p.name}(${p.start}-${p.end})`;
+    chip.addEventListener('click', ()=>{
+      $('sf-start').value = p.start; $('sf-end').value = p.end;
+      $('sf-break').value = p.breakMin; $('sf-wage').value = (p.wage==null?'':p.wage);
+      updateShiftPreview();
+    });
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'chip-del';
+    del.textContent = '✕';
+    del.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if(confirm(`「${p.name}」を削除しますか？`)){
+        state.shiftPatterns = state.shiftPatterns.filter(x=>x.id!==p.id);
+        saveState();
+        renderShiftPatternChips();
+      }
+    });
+    box.appendChild(chip); box.appendChild(del);
+    wrap.appendChild(box);
+  });
+}
+$('sf-save-pattern').addEventListener('click', ()=>{
+  const start = $('sf-start').value, end = $('sf-end').value;
+  if(!start || !end){ alert('時刻を入力してから保存してください'); return; }
+  const name = prompt('パターン名を入力してください（例: 早番、週末シフトなど）', '');
+  if(!name || !name.trim()) return;
+  state.shiftPatterns.push({
+    id: uid(), name: name.trim(), start, end,
+    breakMin: Number($('sf-break').value)||0,
+    wage: $('sf-wage').value === '' ? null : Number($('sf-wage').value)
+  });
+  saveState();
+  renderShiftPatternChips();
+  showToast('パターンを保存しました');
+});
+
+/* ---- 保存処理（新規追加／編集どちらも対応） ---- */
 $('sf-save').addEventListener('click', ()=>{
   const date = $('sf-date').value;
   if(!date){ alert('日付を選んでください'); return; }
   const start = $('sf-start').value, end = $('sf-end').value;
   if(!start || !end){ alert('時刻を入力してください'); return; }
-  state.shifts.push({
-    id: uid(), date, start, end,
-    breakMin: Number($('sf-break').value)||0,
-    wage: $('sf-wage').value === '' ? null : Number($('sf-wage').value)
-  });
+  const breakMin = Number($('sf-break').value)||0;
+  const wage = $('sf-wage').value === '' ? null : Number($('sf-wage').value);
+
+  if(editContext && editContext.kind==='shift'){
+    const s = state.shifts.find(x=>x.id===editContext.id);
+    if(s){ s.date=date; s.start=start; s.end=end; s.breakMin=breakMin; s.wage=wage; }
+  } else {
+    state.shifts.push({ id: uid(), date, start, end, breakMin, wage });
+  }
+  state.lastShiftInput = { start, end, breakMin, wage };
   saveState();
+  const wasEdit = !!editContext;
+  editContext = null;
   $('modal-add').classList.remove('show');
-  showToast('シフトを保存しました');
+  showToast(wasEdit ? 'シフトを更新しました' : 'シフトを保存しました');
   renderMonth(); renderWeek(); renderLedger();
   if($('modal-day').classList.contains('show')) openDayModal(date);
 });
@@ -810,15 +971,46 @@ $('tf-save').addEventListener('click', ()=>{
   const amount = Number($('tf-amount').value);
   if(!date){ alert('日付を選んでください'); return; }
   if(!amount || amount<=0){ alert('金額を入力してください'); return; }
-  state.transactions.push({
-    id: uid(), date, type: currentTxnType, category: currentTxnCat,
-    amount, memo: $('tf-memo').value.trim(),
-    isBiz: currentTxnType==='expense' ? currentTxnIsBiz : false
-  });
+  const isBiz = currentTxnType==='expense' ? currentTxnIsBiz : false;
+
+  if(editContext && editContext.kind==='txn'){
+    const t = state.transactions.find(x=>x.id===editContext.id);
+    if(t){ t.date=date; t.type=currentTxnType; t.category=currentTxnCat; t.amount=amount; t.memo=$('tf-memo').value.trim(); t.isBiz=isBiz; }
+  } else {
+    state.transactions.push({
+      id: uid(), date, type: currentTxnType, category: currentTxnCat,
+      amount, memo: $('tf-memo').value.trim(), isBiz
+    });
+  }
   saveState();
+  const wasEdit = !!editContext;
+  editContext = null;
   $('modal-add').classList.remove('show');
   $('tf-amount').value = ''; $('tf-memo').value = '';
-  showToast('保存しました');
+  showToast(wasEdit ? '更新しました' : '保存しました');
+  renderMonth(); renderWeek(); renderLedger();
+  if($('modal-day').classList.contains('show')) openDayModal(date);
+});
+
+$('ef-save').addEventListener('click', ()=>{
+  const date = $('ef-date').value;
+  const title = $('ef-title').value.trim();
+  if(!date){ alert('日付を選んでください'); return; }
+  if(!title){ alert('予定のタイトルを入力してください'); return; }
+  const time = $('ef-time').value || null;
+  const memo = $('ef-memo').value.trim();
+
+  if(editContext && editContext.kind==='event'){
+    const ev = state.events.find(x=>x.id===editContext.id);
+    if(ev){ ev.date=date; ev.title=title; ev.time=time; ev.memo=memo; }
+  } else {
+    state.events.push({ id: uid(), date, title, time, memo });
+  }
+  saveState();
+  const wasEdit = !!editContext;
+  editContext = null;
+  $('modal-add').classList.remove('show');
+  showToast(wasEdit ? '予定を更新しました' : '予定を保存しました');
   renderMonth(); renderWeek(); renderLedger();
   if($('modal-day').classList.contains('show')) openDayModal(date);
 });
@@ -840,10 +1032,11 @@ function renderDayDetail(dateStr){
   wrap.innerHTML = '';
   const paydayMap = computePaydayMap();
   const dayShifts = shiftsOnDate(dateStr);
+  const dayEvents = eventsOnDate(dateStr);
   const dayTxns = txnsOnDate(dateStr);
   const payday = paydayMap[dateStr];
 
-  if(!dayShifts.length && !dayTxns.length && !payday){
+  if(!dayShifts.length && !dayEvents.length && !dayTxns.length && !payday){
     wrap.innerHTML = '<div class="empty-note">この日の記録はまだありません</div>';
     return;
   }
@@ -856,16 +1049,35 @@ function renderDayDetail(dateStr){
     row.appendChild(amt);
     wrap.appendChild(row);
   }
+  dayEvents.forEach(ev=>{
+    const row = document.createElement('div');
+    row.className = 'day-detail-item event';
+    row.innerHTML = `<div class="ddi-main"><div class="ddi-t">📅 ${ev.time ? ev.time+' ' : ''}${ev.title}</div><div class="ddi-s">${ev.memo||''}</div></div>`;
+    const actions = document.createElement('div');
+    actions.className = 'ddi-actions';
+    const edit = document.createElement('button');
+    edit.className = 'edit-btn'; edit.textContent = '編集';
+    edit.addEventListener('click', ()=> openAddModal(dateStr, 'event', ev.id));
+    const del = document.createElement('button');
+    del.textContent = '削除';
+    del.addEventListener('click', ()=> deleteEvent(ev.id));
+    actions.appendChild(edit); actions.appendChild(del);
+    row.appendChild(actions);
+    wrap.appendChild(row);
+  });
   dayShifts.forEach(s=>{
     const row = document.createElement('div');
     row.className = 'day-detail-item';
     row.innerHTML = `<div class="ddi-main"><div class="ddi-t">バイト ${s.start}-${s.end}</div><div class="ddi-s">${shiftHours(s).toFixed(1)}h・時給${fmtYen(shiftWage(s))}・${fmtYen(shiftPay(s))}</div></div>`;
     const actions = document.createElement('div');
     actions.className = 'ddi-actions';
+    const edit = document.createElement('button');
+    edit.className = 'edit-btn'; edit.textContent = '編集';
+    edit.addEventListener('click', ()=> openAddModal(dateStr, 'shift', s.id));
     const del = document.createElement('button');
     del.textContent = '削除';
     del.addEventListener('click', ()=> deleteShift(s.id));
-    actions.appendChild(del);
+    actions.appendChild(edit); actions.appendChild(del);
     row.appendChild(actions);
     wrap.appendChild(row);
   });
@@ -876,10 +1088,13 @@ function renderDayDetail(dateStr){
     row.innerHTML = `<div class="ddi-main"><div class="ddi-t">${t.type==='income'?'📥':'📤'} ${t.category}${bizTag}</div><div class="ddi-s">${t.memo||''}　${(t.type==='expense'?'-':'+')}${fmtYen(t.amount)}</div></div>`;
     const actions = document.createElement('div');
     actions.className = 'ddi-actions';
+    const edit = document.createElement('button');
+    edit.className = 'edit-btn'; edit.textContent = '編集';
+    edit.addEventListener('click', ()=> openAddModal(dateStr, 'txn', t.id));
     const del = document.createElement('button');
     del.textContent = '削除';
     del.addEventListener('click', ()=> deleteTxn(t.id));
-    actions.appendChild(del);
+    actions.appendChild(edit); actions.appendChild(del);
     row.appendChild(actions);
     wrap.appendChild(row);
   });
@@ -888,6 +1103,7 @@ $('day-modal-close').addEventListener('click', ()=> $('modal-day').classList.rem
 $('modal-day').addEventListener('click', (e)=>{ if(e.target.id==='modal-day') $('modal-day').classList.remove('show'); });
 $('day-add-shift').addEventListener('click', ()=> openAddModal(currentDayStr, 'shift'));
 $('day-add-txn').addEventListener('click', ()=> openAddModal(currentDayStr, 'txn'));
+$('day-add-event').addEventListener('click', ()=> openAddModal(currentDayStr, 'event'));
 
 function deleteShift(id){
   state.shifts = state.shifts.filter(s=>s.id!==id);
@@ -898,6 +1114,13 @@ function deleteShift(id){
 }
 function deleteTxn(id){
   state.transactions = state.transactions.filter(t=>t.id!==id);
+  saveState();
+  showToast('削除しました');
+  if($('modal-day').classList.contains('show')) renderDayDetail(currentDayStr);
+  renderMonth(); renderWeek(); renderLedger();
+}
+function deleteEvent(id){
+  state.events = state.events.filter(e=>e.id!==id);
   saveState();
   showToast('削除しました');
   if($('modal-day').classList.contains('show')) renderDayDetail(currentDayStr);
