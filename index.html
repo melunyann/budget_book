@@ -24,6 +24,10 @@
     --text-soft:#96828A;
     --text-faint:#C7B9BF;
     --border:#F4E1E6;
+    --lavender:#9C8FE0;
+    --lavender-dark:#6F5FC4;
+    --lavender-soft:#EDE9FB;
+    --lavender-soft2:#F6F3FD;
     --shadow-sm: 0 2px 8px rgba(216,66,95,0.07);
     --shadow-md: 0 8px 28px rgba(216,66,95,0.14);
     --radius-s:10px;
@@ -208,6 +212,7 @@
   }
   .day-pill.shift{ background:var(--pink-soft); color:var(--pink-dark); }
   .day-pill.payday{ background:var(--blue); color:#fff; }
+  .day-pill.event{ background:var(--lavender-soft); color:var(--lavender-dark); }
   .day-dots{ margin-top:auto; display:flex; gap:2px; padding-top:3px; }
   .day-dots .dot{ width:5px;height:5px;border-radius:50%; }
   .day-dots .dot.income{ background:var(--blue); }
@@ -332,6 +337,11 @@
   .day-detail-item .ddi-main .ddi-s{ font-size:11px; color:var(--text-soft); }
   .ddi-actions{ display:flex; gap:6px; align-items:center; }
   .ddi-actions button{ border:none; background:var(--pink-soft2); color:var(--pink-dark); border-radius:8px; font-size:11px; padding:5px 9px; font-weight:700;}
+  .ddi-actions button.edit-btn{ background:var(--blue-soft); color:var(--blue-dark); }
+  .day-detail-item.event .ddi-t{ color:var(--lavender-dark); }
+  .pattern-chip-wrap{ display:inline-flex; align-items:center; gap:0; margin:0 6px 7px 0; }
+  .pattern-chip-wrap .chip{ margin:0; border-radius:20px 0 0 20px; border-right:none; }
+  .pattern-chip-wrap .chip-del{ border:1.5px solid var(--border); border-left:none; background:#FDFBFA; color:var(--text-faint); border-radius:0 20px 20px 0; padding:7px 9px; font-size:11px; }
   .quick-add-row{ display:flex; gap:10px; margin-bottom:6px; }
   .quick-add-row .btn{ flex:1; }
   .category-chips{ display:flex; flex-wrap:wrap; gap:7px; margin-bottom:6px; }
@@ -356,6 +366,8 @@
   .week-head-cell .wh-dots .dot.income{ background:var(--blue); }
   .week-head-cell .wh-dots .dot.expense{ background:var(--pink); }
   .week-head-cell .wh-payday{ font-size:8px; background:var(--blue); color:#fff; border-radius:6px; padding:1px 4px; margin-top:3px; display:inline-block; font-weight:700; }
+  .wh-events{ margin-top:2px; display:flex; flex-direction:column; gap:1px; }
+  .wh-event-chip{ font-size:7.5px; background:var(--lavender-soft); color:var(--lavender-dark); border-radius:5px; padding:1px 3px; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:700; }
   .week-timegrid-wrap{ display:grid; grid-template-columns:34px 1fr; gap:3px; }
   .week-axis{ position:relative; }
   .week-axis .axis-label{ position:absolute; right:3px; transform:translateY(-50%); font-size:9px; color:var(--text-faint); white-space:nowrap; }
@@ -636,10 +648,16 @@
     <div class="quick-add-row">
       <button class="btn" id="qa-shift" style="background:var(--pink-soft); color:var(--pink-dark);">バイトのシフト</button>
       <button class="btn" id="qa-txn" style="background:var(--blue-soft); color:var(--blue-dark);">収入・支出</button>
+      <button class="btn" id="qa-event" style="background:var(--lavender-soft); color:var(--lavender-dark);">予定</button>
     </div>
 
     <!-- シフト入力フォーム -->
     <div id="form-shift" style="display:none;">
+      <div class="field">
+        <label>よく使うシフト</label>
+        <div id="sf-pattern-chips" style="margin-bottom:6px;"></div>
+        <button type="button" class="btn btn-ghost" id="sf-save-pattern" style="font-size:12px; padding:8px;">今の内容をパターンとして保存</button>
+      </div>
       <div class="field"><label>日付</label><input type="date" id="sf-date"></div>
       <div class="row2">
         <div class="field"><label>開始時刻</label><input type="time" id="sf-start" value="09:00"></div>
@@ -675,6 +693,21 @@
       <div class="field"><label>メモ(任意)</label><input type="text" id="tf-memo" placeholder="例: 友達とカフェ"></div>
       <button class="btn btn-primary" id="tf-save">保存する</button>
     </div>
+
+    <!-- 予定入力フォーム -->
+    <div id="form-event" style="display:none;">
+      <div class="field"><label>日付</label><input type="date" id="ef-date"></div>
+      <div class="field"><label>予定のタイトル</label><input type="text" id="ef-title" placeholder="例: 友達とランチ"></div>
+      <div class="row2">
+        <div class="field"><label>時刻(任意)</label><input type="time" id="ef-time"></div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button type="button" class="btn btn-ghost" id="ef-clear-time">時刻なし(終日)にする</button>
+        </div>
+      </div>
+      <div class="field"><label>メモ(任意)</label><input type="text" id="ef-memo" placeholder="場所や持ち物など"></div>
+      <button class="btn btn-primary" id="ef-save">予定を保存</button>
+    </div>
   </div>
 </div>
 
@@ -687,6 +720,7 @@
     <div class="quick-add-row">
       <button class="btn" id="day-add-shift" style="background:var(--pink-soft); color:var(--pink-dark);">シフトを追加</button>
       <button class="btn" id="day-add-txn" style="background:var(--blue-soft); color:var(--blue-dark);">収支を追加</button>
+      <button class="btn" id="day-add-event" style="background:var(--lavender-soft); color:var(--lavender-dark);">予定を追加</button>
     </div>
   </div>
 </div>
