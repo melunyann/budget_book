@@ -213,39 +213,6 @@
   .day-dots .dot.income{ background:var(--blue); }
   .day-dots .dot.expense{ background:var(--pink); }
 
-  /* ---------- Week view ---------- */
-  .week-list{ display:flex; flex-direction:column; gap:8px; }
-  .week-day-row{
-    display:flex;
-    gap:10px;
-    border:1px solid var(--border);
-    border-radius:14px;
-    padding:10px 12px;
-    background:#FDFBFA;
-    align-items:flex-start;
-  }
-  .week-day-row.today{ border-color:var(--pink); background:var(--pink-soft2); }
-  .wd-date{ width:46px; flex-shrink:0; text-align:center; padding-top:2px;}
-  .wd-date .wd-name{ font-size:10.5px; color:var(--text-faint); font-weight:700;}
-  .wd-date .wd-num{ font-size:18px; font-weight:900; }
-  .wd-body{ flex:1; min-width:0; }
-  .wd-empty{ font-size:12px; color:var(--text-faint); padding:6px 0; }
-  .wd-item{
-    display:flex; justify-content:space-between; align-items:center;
-    font-size:12.5px;
-    padding:5px 0;
-    border-bottom:1px dashed var(--border);
-    gap:8px;
-  }
-  .wd-item:last-child{ border-bottom:none; }
-  .wd-item .wd-item-main{ min-width:0; }
-  .wd-item .wd-item-main .tt{ font-weight:700; }
-  .wd-item .wd-item-main .sub{ color:var(--text-soft); font-size:11px; }
-  .wd-amt{ font-weight:800; white-space:nowrap; }
-  .wd-amt.shift, .wd-amt.income{ color:var(--blue-dark); }
-  .wd-amt.expense{ color:var(--pink-dark); }
-  .wd-amt.payday{ color:#fff; background:var(--blue); padding:2px 8px; border-radius:10px; font-size:11px;}
-
   /* ---------- Ledger (家計簿) list ---------- */
   .ledger-date-group{ margin-bottom:10px; }
   .ledger-date-head{ font-size:11.5px; font-weight:700; color:var(--text-soft); margin:10px 0 6px; padding-left:2px;}
@@ -376,6 +343,62 @@
   .chip.active.expense{ background:var(--pink); border-color:var(--pink); color:#fff; }
 
   footer.credit{ text-align:center; font-size:11px; color:var(--text-faint); padding:20px 0 6px; }
+
+  /* ---------- Week timeline ---------- */
+  .week-head-row{ display:grid; grid-template-columns:34px repeat(7,1fr); gap:3px; margin-bottom:4px; }
+  .week-head-cell{ text-align:center; padding:6px 1px 5px; border-radius:10px; }
+  .week-head-cell.hd-axis{ visibility:hidden; }
+  .week-head-cell.today{ background:var(--pink-soft2); }
+  .week-head-cell .wh-day{ font-size:9.5px; color:var(--text-faint); font-weight:700; }
+  .week-head-cell .wh-num{ font-size:14px; font-weight:800; line-height:1.3; }
+  .week-head-cell .wh-dots{ display:flex; justify-content:center; gap:2px; margin-top:2px; height:6px; }
+  .week-head-cell .wh-dots .dot{ width:5px;height:5px;border-radius:50%; }
+  .week-head-cell .wh-dots .dot.income{ background:var(--blue); }
+  .week-head-cell .wh-dots .dot.expense{ background:var(--pink); }
+  .week-head-cell .wh-payday{ font-size:8px; background:var(--blue); color:#fff; border-radius:6px; padding:1px 4px; margin-top:3px; display:inline-block; font-weight:700; }
+  .week-timegrid-wrap{ display:grid; grid-template-columns:34px 1fr; gap:3px; }
+  .week-axis{ position:relative; }
+  .week-axis .axis-label{ position:absolute; right:3px; transform:translateY(-50%); font-size:9px; color:var(--text-faint); white-space:nowrap; }
+  .week-days-track{ position:relative; display:grid; grid-template-columns:repeat(7,1fr); gap:3px; border-top:1px solid var(--border); border-radius:6px; overflow:hidden; }
+  .week-day-col{ position:relative; background:#FDFBFA; border-left:1px dashed var(--border); }
+  .week-day-col:first-child{ border-left:none; }
+  .week-day-col.today-col{ background:var(--pink-soft2); }
+  .week-shift-block{
+    position:absolute; left:2px; right:2px; border-radius:7px;
+    background:linear-gradient(135deg, var(--pink), var(--pink-dark)); color:#fff;
+    font-size:9.5px; font-weight:700; padding:3px 4px; overflow:hidden;
+    box-shadow:0 3px 8px rgba(216,66,95,.22); line-height:1.25; cursor:pointer;
+  }
+  .week-shift-block .wsb-time{ font-size:8.5px; opacity:.92; display:block; }
+  .week-empty-note{ text-align:center; font-size:11.5px; color:var(--text-faint); padding:10px 0 4px; }
+
+  /* ---------- 経費トグル ---------- */
+  .biz-toggle{
+    display:inline-flex; align-items:center; gap:7px; border:1.5px solid var(--border);
+    background:#FDFBFA; border-radius:20px; padding:8px 14px; font-size:12.5px; font-weight:700;
+    color:var(--text-soft); margin-bottom:6px;
+  }
+  .biz-toggle.active{ background:var(--pink-soft); border-color:var(--pink); color:var(--pink-dark); }
+  .biz-toggle .bt-box{ width:16px;height:16px;border-radius:5px;border:1.5px solid var(--border); background:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; }
+  .biz-toggle.active .bt-box{ background:var(--pink); border-color:var(--pink); color:#fff; }
+
+  /* ---------- 家計簿 月/年 切替 & 絞り込み ---------- */
+  .filter-seg{ display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+  .filter-seg button{
+    border:1.5px solid var(--border); background:#FDFBFA; color:var(--text-soft);
+    border-radius:16px; padding:6px 12px; font-size:11.5px; font-weight:700;
+  }
+  .filter-seg button.active{ background:var(--pink); border-color:var(--pink); color:#fff; }
+  .biz-sub-line{ font-size:11px; color:var(--pink-dark); font-weight:700; margin-top:2px; }
+
+  .year-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  .year-table th{ font-size:10.5px; color:var(--text-faint); font-weight:700; padding:6px 4px; text-align:right; }
+  .year-table th:first-child{ text-align:left; }
+  .year-table td{ padding:7px 4px; text-align:right; border-top:1px solid var(--border); }
+  .year-table td:first-child{ text-align:left; font-weight:700; }
+  .year-table td.inc{ color:var(--blue-dark); font-weight:700; }
+  .year-table td.exp{ color:var(--pink-dark); font-weight:700; }
+  .year-table tr.cur-month td{ background:var(--pink-soft2); }
 </style>
 </head>
 <body>
@@ -442,37 +465,101 @@
         <div class="summary-box pink"><div class="s-label">今週のバイト代</div><div class="s-value" id="w-shift-total">¥0</div></div>
         <div class="summary-box blue"><div class="s-label">今週の収支</div><div class="s-value" id="w-balance">¥0</div></div>
       </div>
-      <div class="week-list" id="week-list"></div>
+      <div class="week-head-row" id="week-head-row"></div>
+      <div class="week-timegrid-wrap">
+        <div class="week-axis" id="week-axis"></div>
+        <div class="week-days-track" id="week-days-track"></div>
+      </div>
+      <div class="week-empty-note" id="week-empty-note" style="display:none;">この週はまだシフトの記録がありません。日付をタップして追加できます。</div>
     </div>
   </section>
 
   <!-- ============ 家計簿 ============ -->
   <section class="view" id="view-ledger">
-    <div class="card">
-      <div class="period-nav">
-        <button class="nav-btn" id="l-prev">‹</button>
-        <div class="label" id="l-label">2026年9月</div>
-        <button class="nav-btn" id="l-next">›</button>
-      </div>
-      <div class="summary-grid">
-        <div class="summary-box blue"><div class="s-label">収入</div><div class="s-value" id="l-income">¥0</div><div class="s-sub" id="l-income-sub">バイト代 ¥0 含む</div></div>
-        <div class="summary-box pink"><div class="s-label">支出</div><div class="s-value" id="l-expense">¥0</div></div>
-      </div>
-      <div class="summary-box" style="background:var(--cream); border:1px solid var(--border); text-align:center; margin-bottom:4px;">
-        <div class="s-label" style="margin-bottom:0;">差引収支</div>
-        <div class="s-value" id="l-balance" style="font-size:22px;">¥0</div>
+    <div class="card" style="margin-bottom:10px;">
+      <div class="seg" id="l-mode-seg" style="margin-bottom:0;">
+        <button class="active income" data-mode="month">月表示</button>
+        <button data-mode="year">年間表示</button>
       </div>
     </div>
 
-    <div class="card" id="l-cat-card">
-      <div class="label" style="font-size:14px; margin-bottom:12px;">支出の内訳</div>
-      <div id="l-cat-bars"></div>
-      <div class="empty-note" id="l-cat-empty" style="display:none;">この月の支出はまだありません</div>
+    <!-- ===== 月表示 ===== -->
+    <div id="ledger-month-view">
+      <div class="card">
+        <div class="period-nav">
+          <button class="nav-btn" id="l-prev">‹</button>
+          <div class="label" id="l-label">2026年9月</div>
+          <button class="nav-btn" id="l-next">›</button>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-box blue"><div class="s-label">収入</div><div class="s-value" id="l-income">¥0</div><div class="s-sub" id="l-income-sub">バイト代 ¥0 含む</div></div>
+          <div class="summary-box pink"><div class="s-label">支出</div><div class="s-value" id="l-expense">¥0</div><div class="s-sub biz-sub-line" id="l-biz-sub">うち経費 ¥0</div></div>
+        </div>
+        <div class="summary-box" style="background:var(--cream); border:1px solid var(--border); text-align:center; margin-bottom:4px;">
+          <div class="s-label" style="margin-bottom:0;">差引収支</div>
+          <div class="s-value" id="l-balance" style="font-size:22px;">¥0</div>
+        </div>
+      </div>
+
+      <div class="card" id="l-cat-card">
+        <div class="label" style="font-size:14px; margin-bottom:10px;">支出の内訳</div>
+        <div class="filter-seg" id="l-filter-seg">
+          <button class="active" data-f="all">すべて</button>
+          <button data-f="biz">経費のみ</button>
+          <button data-f="nonbiz">経費以外</button>
+        </div>
+        <div id="l-cat-bars"></div>
+        <div class="empty-note" id="l-cat-empty" style="display:none;">この月の支出はまだありません</div>
+      </div>
+
+      <div class="card">
+        <div class="label" style="font-size:14px; margin-bottom:8px;">履歴</div>
+        <div id="l-list"></div>
+      </div>
     </div>
 
-    <div class="card">
-      <div class="label" style="font-size:14px; margin-bottom:8px;">履歴</div>
-      <div id="l-list"></div>
+    <!-- ===== 年間表示 ===== -->
+    <div id="ledger-year-view" style="display:none;">
+      <div class="card">
+        <div class="period-nav">
+          <button class="nav-btn" id="y-prev">‹</button>
+          <div class="label" id="y-label">2026年</div>
+          <button class="nav-btn" id="y-next">›</button>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-box blue"><div class="s-label">年間収入</div><div class="s-value" id="y-income">¥0</div><div class="s-sub" id="y-income-sub">バイト代 ¥0 含む</div></div>
+          <div class="summary-box pink"><div class="s-label">年間支出</div><div class="s-value" id="y-expense">¥0</div><div class="s-sub biz-sub-line" id="y-biz-sub">うち経費 ¥0</div></div>
+        </div>
+        <div class="summary-box" style="background:var(--cream); border:1px solid var(--border); text-align:center; margin-bottom:4px;">
+          <div class="s-label" style="margin-bottom:0;">年間差引収支</div>
+          <div class="s-value" id="y-balance" style="font-size:22px;">¥0</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="label" style="font-size:14px; margin-bottom:10px;">収入の内訳(項目ごと)</div>
+        <div id="y-income-bars"></div>
+        <div class="empty-note" id="y-income-empty" style="display:none;">この年の収入はまだありません</div>
+      </div>
+
+      <div class="card">
+        <div class="label" style="font-size:14px; margin-bottom:10px;">支出の内訳(項目ごと)</div>
+        <div class="filter-seg" id="y-filter-seg">
+          <button class="active" data-f="all">すべて</button>
+          <button data-f="biz">経費のみ</button>
+          <button data-f="nonbiz">経費以外</button>
+        </div>
+        <div id="y-expense-bars"></div>
+        <div class="empty-note" id="y-expense-empty" style="display:none;">この年の支出はまだありません</div>
+      </div>
+
+      <div class="card">
+        <div class="label" style="font-size:14px; margin-bottom:10px;">月ごとの推移</div>
+        <table class="year-table">
+          <thead><tr><th>月</th><th>収入</th><th>支出</th><th>収支</th></tr></thead>
+          <tbody id="y-month-table"></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -579,6 +666,10 @@
       <div class="field">
         <label>カテゴリ</label>
         <div class="category-chips" id="tf-cats"></div>
+      </div>
+      <div class="field" id="tf-biz-field" style="display:none;">
+        <button type="button" class="biz-toggle" id="tf-biz-toggle"><span class="bt-box">✓</span>経費にする</button>
+        <div class="hint" style="margin-top:4px;">確定申告や副業管理などで、経費として集計したい支出にチェックしてください。</div>
       </div>
       <div class="field"><label>金額(円)</label><input type="number" id="tf-amount" min="0" step="1" placeholder="例: 1200"></div>
       <div class="field"><label>メモ(任意)</label><input type="text" id="tf-memo" placeholder="例: 友達とカフェ"></div>
