@@ -18,7 +18,11 @@ function defaultState(){
       hourlyWage: 1100,
       closingDay: 'end',   // 'end' or 1-28
       paydayOffset: 1,     // 0,1,2 ヶ月後
-      paydayDay: 25        // 'end' or 1-31
+      paydayDay: 25,       // 'end' or 1-31
+      characterName: 'アリス',
+      themeColor: '#6FB8DE',
+      startingBalance: 0,
+      illustrationDataUrl: null
     },
     shifts: [],        // {id, date:'YYYY-MM-DD', start:'HH:MM', end:'HH:MM', breakMin, wage(optional)}
     transactions: [],   // {id, date, type:'income'|'expense', category, amount, memo, isBiz}
@@ -1134,3 +1138,17 @@ renderMonth();
 renderWeek();
 renderLedger();
 renderSettings();
+
+// ホーム画面(index.html)から ?tab=week のように渡された場合、そのタブを開く。
+// ?openToday=1 が付いていれば、今日の日別詳細モーダルも自動で開く。
+(function applyUrlParams(){
+  const params = new URLSearchParams(location.search);
+  const tabParam = params.get('tab');
+  if(tabParam){
+    const btn = [...document.querySelectorAll('.tab')].find(b=>b.dataset.tab===tabParam);
+    if(btn) btn.click();
+  }
+  if(params.get('openToday')==='1'){
+    openDayModal(todayStr());
+  }
+})();
