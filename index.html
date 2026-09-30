@@ -33,10 +33,11 @@
     --radius-xl:28px;
   }
   *{ box-sizing:border-box; }
-  html,body{ margin:0; padding:0; }
+  html,body{ margin:0; padding:0; height:100%; }
   body{
     position:relative;
-    min-height:100vh;
+    height:100vh; height:100dvh;
+    display:flex; flex-direction:column;
     background:
       radial-gradient(circle at 15% 8%, rgba(255,255,255,0.05), transparent 40%),
       radial-gradient(circle at 85% 15%, var(--acc-soft), transparent 45%),
@@ -44,33 +45,35 @@
     color:var(--ink);
     font-family:'Zen Kaku Gothic New', sans-serif;
     -webkit-font-smoothing:antialiased;
-    padding:16px 16px 90px;
+    padding:calc(6px + env(safe-area-inset-top,0px)) 8px calc(4px + env(safe-area-inset-bottom,0px));
+    overflow:hidden;
   }
   h1,h2,h3,.brand-mini,.date-big,.lv-chip,.card-head,.money-card .mr-val{ font-family:'Zen Maru Gothic', sans-serif; }
   button{ font-family:inherit; cursor:pointer; }
   .icon{ width:1em; height:1em; display:inline-block; vertical-align:-0.15em; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
   @keyframes shine-sweep{ 0%{ transform:translateX(-120%); } 100%{ transform:translateX(220%); } }
 
-  .shell{ max-width:1180px; margin:0 auto; }
+  .shell{ flex:1; min-height:0; display:flex; flex-direction:column; max-width:1180px; width:100%; margin:0 auto; }
 
   /* ---------- Top bar ---------- */
   .top-bar{
+    flex:0 0 auto;
     display:flex; align-items:center; justify-content:space-between;
-    padding:8px 4px 16px;
-    flex-wrap:wrap; gap:10px;
+    padding:2px 4px 6px;
+    gap:8px;
   }
-  .brand-mini{ font-weight:900; font-size:17px; display:flex; align-items:center; gap:7px; }
+  .brand-mini{ font-weight:900; font-size:14px; display:flex; align-items:center; gap:6px; }
   .brand-spark{ color:var(--acc-light); }
-  .top-right{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .top-right{ display:flex; align-items:center; gap:6px; }
   .lv-chip{
-    display:flex; align-items:center; gap:8px;
+    display:flex; align-items:center; gap:6px;
     background:var(--glass); border:1px solid var(--glass-border);
-    border-radius:20px; padding:6px 12px 6px 12px;
-    font-size:12px; font-weight:700; color:var(--ink-soft);
+    border-radius:16px; padding:4px 9px;
+    font-size:10.5px; font-weight:700; color:var(--ink-soft);
     backdrop-filter:blur(10px);
   }
-  .lv-chip .lv-num{ color:var(--ink); font-size:12.5px; }
-  .lv-bar-track{ width:64px; height:6px; border-radius:4px; background:rgba(255,255,255,0.12); overflow:hidden; position:relative; }
+  .lv-chip .lv-num{ color:var(--ink); font-size:11px; }
+  .lv-bar-track{ width:44px; height:5px; border-radius:4px; background:rgba(255,255,255,0.12); overflow:hidden; position:relative; }
   .lv-bar-fill{ height:100%; background:linear-gradient(90deg, var(--acc), var(--acc-light)); border-radius:4px; position:relative; overflow:hidden; transition:width .4s ease; }
   .lv-bar-fill::after{
     content:""; position:absolute; inset:0; width:40%;
@@ -78,9 +81,9 @@
     animation:shine-sweep 2.6s ease-in-out infinite;
   }
   .wallet-chip{
-    display:flex; align-items:center; gap:6px;
+    display:flex; align-items:center; gap:5px;
     background:var(--glass); border:1px solid var(--glass-border);
-    border-radius:20px; padding:8px 14px; font-weight:800; font-size:13px;
+    border-radius:16px; padding:5px 10px; font-weight:800; font-size:11px;
     backdrop-filter:blur(10px);
     box-shadow:0 0 0 0 var(--acc-glow);
     animation:wallet-pulse 3.4s ease-in-out infinite;
@@ -91,37 +94,36 @@
   }
   .icon-btn{
     position:relative;
-    width:38px; height:38px; border-radius:50%;
+    width:30px; height:30px; border-radius:50%;
     background:var(--glass); border:1px solid var(--glass-border);
-    color:var(--ink); font-size:15px;
+    color:var(--ink); font-size:13px;
     display:flex; align-items:center; justify-content:center;
     backdrop-filter:blur(10px);
+    flex-shrink:0;
   }
   .badge-dot{ position:absolute; top:6px; right:7px; width:7px; height:7px; border-radius:50%; background:var(--danger); border:1.5px solid var(--bg1); }
 
   /* ---------- Dash (メインフレーム / 横画面のゲーム風ウィンドウ) ---------- */
   .dash{
     position:relative;
+    flex:1; min-height:0;
     border-radius:var(--radius-xl);
     overflow:hidden;
-    aspect-ratio:16/8.6;
-    min-height:360px;
-    max-height:80vh;
     background:linear-gradient(160deg, var(--bg1), var(--bg2));
     box-shadow:0 24px 60px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.05), inset 0 0 0 6px rgba(0,0,0,0.15);
   }
   .dash::before{
-    content:""; position:absolute; inset:8px; border-radius:calc(var(--radius-xl) - 8px);
+    content:""; position:absolute; inset:6px; border-radius:calc(var(--radius-xl) - 6px);
     border:1px solid var(--acc-soft); pointer-events:none; z-index:4;
   }
   .dash-corner{
-    position:absolute; width:22px; height:22px; z-index:5; color:var(--acc-light); opacity:.85; pointer-events:none;
+    position:absolute; width:18px; height:18px; z-index:5; color:var(--acc-light); opacity:.85; pointer-events:none;
   }
   .dash-corner svg{ width:100%; height:100%; }
-  .dash-corner.tl{ top:14px; left:14px; }
-  .dash-corner.tr{ top:14px; right:14px; transform:scaleX(-1); }
-  .dash-corner.bl{ bottom:14px; left:14px; transform:scaleY(-1); }
-  .dash-corner.br{ bottom:14px; right:14px; transform:scale(-1,-1); }
+  .dash-corner.tl{ top:10px; left:10px; }
+  .dash-corner.tr{ top:10px; right:10px; transform:scaleX(-1); }
+  .dash-corner.bl{ bottom:10px; left:10px; transform:scaleY(-1); }
+  .dash-corner.br{ bottom:10px; right:10px; transform:scale(-1,-1); }
   .dash-illust{
     position:absolute; inset:0; width:100%; height:100%;
     background-size:cover; background-position:50% 12%;
@@ -132,114 +134,109 @@
     background:linear-gradient(180deg, rgba(8,12,22,0.15) 0%, rgba(8,12,22,0) 30%, rgba(8,12,22,0.55) 100%);
   }
   .illust-empty{
-    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
-    color:var(--ink-soft); text-align:center; padding:20px; z-index:2;
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    color:var(--ink-soft); text-align:center; padding:14px; z-index:2;
   }
-  .illust-empty .ie-icon{ font-size:40px; opacity:.8; }
-  .illust-empty .ie-text{ font-size:13px; }
+  .illust-empty .ie-icon{ font-size:30px; opacity:.8; }
+  .illust-empty .ie-text{ font-size:11px; }
   .btn-upload{
-    border:none; border-radius:20px; padding:10px 20px; font-weight:700; font-size:13px;
+    border:none; border-radius:18px; padding:7px 16px; font-weight:700; font-size:11.5px;
     background:linear-gradient(135deg, var(--acc), var(--acc-dark)); color:#fff;
     box-shadow:0 8px 20px var(--acc-glow);
   }
 
   .dash-overlay-left{
-    position:absolute; left:clamp(10px,1.6vw,18px); top:clamp(10px,1.6vw,18px);
-    width:clamp(200px,26vw,300px); max-width:45%;
-    display:flex; flex-direction:column; gap:clamp(6px,1.2vh,12px); z-index:3;
+    position:absolute; left:8px; top:8px; bottom:8px;
+    width:clamp(150px,25vw,215px); max-width:44%;
+    display:flex; z-index:3;
   }
   .dash-overlay-right{
-    position:absolute; right:clamp(10px,1.6vw,18px); top:clamp(10px,1.6vw,18px);
-    width:clamp(190px,24vw,280px); max-width:40%;
-    display:flex; flex-direction:column; gap:clamp(6px,1vh,10px); z-index:3;
+    position:absolute; right:8px; top:8px; bottom:8px;
+    width:clamp(150px,25vw,215px); max-width:40%;
+    display:flex; z-index:3;
   }
   .dash-speech{
-    position:absolute; left:clamp(10px,1.6vw,18px); right:clamp(10px,1.6vw,18px); bottom:clamp(10px,1.6vw,18px);
-    max-width:600px; z-index:3;
-    display:flex; align-items:flex-end; gap:10px;
+    position:absolute; left:8px; right:8px; bottom:8px;
+    max-width:56%; z-index:3;
+    display:flex; align-items:flex-end; gap:8px;
   }
 
   .glass{
     background:var(--glass); border:1px solid var(--glass-border);
-    border-radius:var(--radius-l); backdrop-filter:blur(14px);
-    padding:clamp(8px,1.4vh,14px) clamp(10px,1.4vw,16px);
+    border-radius:var(--radius-m); backdrop-filter:blur(14px);
+    padding:9px 11px;
   }
 
-  /* 日付カード */
-  .date-card{ padding:16px; }
-  .date-year{ font-size:12px; color:var(--ink-soft); font-weight:700; }
-  .date-big{ font-size:30px; font-weight:900; display:flex; align-items:baseline; gap:8px; line-height:1.15; }
-  .date-dow{ font-size:14px; color:var(--acc-light); font-weight:700; }
-  .date-greeting{ font-size:12px; color:var(--ink-soft); margin-top:6px; line-height:1.6; }
-
-  /* スケジュールカード */
-  .schedule-card{ padding:14px 16px; }
-  .card-head{ font-size:12px; font-weight:800; color:var(--ink-soft); letter-spacing:.03em; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+  /* 左パネル：日付＋スケジュールを1枚のカードにまとめる */
+  .panel-left{ width:100%; display:flex; flex-direction:column; min-height:0; }
+  .date-row{ display:flex; align-items:baseline; gap:6px; flex-shrink:0; }
+  .date-big{ font-size:17px; font-weight:900; line-height:1.1; white-space:nowrap; }
+  .date-dow{ font-size:10.5px; color:var(--acc-light); font-weight:700; }
+  .date-greeting{
+    font-size:9.5px; color:var(--ink-soft); margin-top:2px; line-height:1.4;
+    flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .panel-divider{ height:1px; background:var(--glass-border); margin:6px 0; flex-shrink:0; }
+  .card-head{
+    font-size:10px; font-weight:800; color:var(--ink-soft); letter-spacing:.02em;
+    display:flex; align-items:center; justify-content:space-between; gap:6px; flex-shrink:0;
+  }
+  .card-head-addbtn{
+    width:18px; height:18px; border-radius:50%; border:1px solid var(--glass-border);
+    background:rgba(255,255,255,0.05); color:var(--ink-soft); font-size:12px; line-height:1;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .sch-list{ flex:1; min-height:0; overflow-y:auto; margin-top:4px; }
   .sch-item{
-    display:flex; align-items:flex-start; gap:8px; padding:6px 0;
-    border-left:2px solid var(--acc); padding-left:10px; margin-bottom:6px;
+    display:flex; align-items:baseline; gap:5px; padding:2px 0 2px 7px;
+    border-left:2px solid var(--acc); margin-bottom:2px; font-size:10px;
   }
   .sch-item.work{ border-left-color:#F2617E; }
-  .sch-time{ font-size:11px; color:var(--ink-faint); font-weight:700; width:38px; flex-shrink:0; padding-top:1px;}
-  .sch-title{ font-size:12.5px; font-weight:700; color:var(--ink); }
-  .sch-title .star{ color:#F2617E; }
-  .sch-empty{ font-size:11.5px; color:var(--ink-faint); padding:8px 0; }
-  .add-schedule-btn{
-    width:100%; margin-top:6px; padding:8px; border-radius:12px; border:1px dashed var(--glass-border);
-    background:rgba(255,255,255,0.03); color:var(--ink-soft); font-size:12px; font-weight:700;
-  }
-  .next-block{ margin-top:12px; padding-top:10px; border-top:1px solid var(--glass-border); }
-  .next-label{ font-size:10px; font-weight:800; color:var(--acc-light); letter-spacing:.08em; margin-bottom:4px;}
-  .next-item{ font-size:12.5px; font-weight:700; }
-  .next-item .ni-time{ color:var(--ink-faint); font-weight:700; margin-right:6px; }
+  .sch-time{ color:var(--ink-faint); font-weight:700; flex-shrink:0; }
+  .sch-title{ font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sch-empty{ font-size:10px; color:var(--ink-faint); padding:4px 0; }
+  .next-block{ margin-top:5px; padding-top:5px; border-top:1px solid var(--glass-border); flex-shrink:0; }
+  .next-label{ font-size:8.5px; font-weight:800; color:var(--acc-light); letter-spacing:.06em; }
+  .next-item{ font-size:10px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .next-item .ni-time{ color:var(--ink-faint); font-weight:700; margin-right:5px; }
 
-  /* 吹き出し */
+  /* 右パネル：所持金・お知らせ・設定導線を1枚のカードにまとめる */
+  .panel-right{ width:100%; display:flex; flex-direction:column; min-height:0; }
+  .money-card{ flex-shrink:0; }
+  .notice-wrap{ flex:1; min-height:0; overflow-y:auto; margin-top:4px; }
   .speech-tag{
-    flex-shrink:0; background:var(--acc); color:#fff; font-weight:800; font-size:11.5px;
-    padding:8px 12px; border-radius:16px; margin-bottom:2px; box-shadow:0 6px 16px var(--acc-glow);
+    flex-shrink:0; background:var(--acc); color:#fff; font-weight:800; font-size:10px;
+    padding:5px 10px; border-radius:14px; margin-bottom:2px; box-shadow:0 6px 16px var(--acc-glow);
     display:inline-block;
   }
   .speech-bubble{
-    background:rgba(255,255,255,0.94); color:#2A3450; border-radius:18px 18px 18px 4px;
-    padding:12px 16px; font-size:12.5px; line-height:1.75; font-weight:600;
-    box-shadow:0 10px 26px rgba(0,0,0,0.3); white-space:pre-line; max-width:420px;
+    background:rgba(255,255,255,0.94); color:#2A3450; border-radius:16px 16px 16px 4px;
+    padding:8px 12px; font-size:10.5px; line-height:1.55; font-weight:600;
+    box-shadow:0 10px 26px rgba(0,0,0,0.3); white-space:pre-line; max-width:100%;
   }
-
-  /* 右カラム */
-  .greet-banner{ display:flex; align-items:center; gap:10px; padding:10px 14px; }
-  .mini-avatar{
-    width:40px; height:40px; border-radius:50%; flex-shrink:0;
-    background-size:cover; background-position:50% 10%;
-    background-color:var(--acc-soft);
-    border:2px solid var(--acc-light);
-  }
-  .greet-text{ font-size:12px; font-weight:700; line-height:1.5; }
 
   .money-card .money-row{
-    display:flex; align-items:center; gap:8px; padding:8px 0;
-    border-bottom:1px solid var(--glass-border); font-size:12.5px;
+    display:flex; align-items:center; gap:6px; padding:4px 0;
+    border-bottom:1px solid var(--glass-border); font-size:10px;
   }
   .money-card .money-row:last-child{ border-bottom:none; }
-  .mr-ic{ width:18px; text-align:center; font-size:15px; }
+  .mr-ic{ width:14px; text-align:center; font-size:11px; }
   .mr-label{ flex:1; color:var(--ink-soft); font-weight:700; }
-  .mr-val{ font-weight:800; font-size:14px; }
+  .mr-val{ font-weight:800; font-size:11px; }
   .mr-val.neg{ color:var(--danger); }
   .mr-val.pos{ color:var(--income-col); }
 
-  .notice-card{ padding:12px 14px; }
-  .card-head-sm{ font-size:11.5px; font-weight:800; color:var(--ink-soft); margin-bottom:6px; }
-  .notice-row{ display:flex; align-items:flex-start; gap:7px; font-size:11.5px; padding:5px 0; line-height:1.5; }
+  .card-head-sm{ font-size:9.5px; font-weight:800; color:var(--ink-soft); }
+  .notice-row{ display:flex; align-items:flex-start; gap:5px; font-size:9.5px; padding:2px 0; line-height:1.4; }
   .notice-row .ni-ic{ flex-shrink:0; }
-  .notice-row .ni-date{ color:var(--ink-faint); font-size:10.5px; white-space:nowrap; margin-left:6px; }
-  .notice-empty{ font-size:11.5px; color:var(--ink-faint); padding:4px 0; }
+  .notice-row .ni-date{ color:var(--ink-faint); font-size:8.5px; white-space:nowrap; margin-left:4px; }
+  .notice-empty{ font-size:9.5px; color:var(--ink-faint); padding:3px 0; }
 
-  .char-settings-banner{
-    border:none; text-align:left; display:flex; flex-direction:column; gap:2px;
-    color:#fff; background:linear-gradient(135deg, var(--acc-dark), var(--acc));
-    box-shadow:0 10px 24px var(--acc-glow);
+  .char-settings-link{
+    flex-shrink:0; margin-top:4px; padding-top:5px; border-top:1px solid var(--glass-border);
+    border:none; background:transparent; text-align:left; display:flex; align-items:center; gap:5px;
+    color:var(--acc-light); font-size:9.5px; font-weight:800; width:100%;
   }
-  .char-settings-banner span:first-child{ font-size:13px; font-weight:800; }
-  .csb-sub{ font-size:10.5px; opacity:.9; }
 
   /* ---------- 縦持ちのスマホでは「横にしてね」の案内を出す ---------- */
   .rotate-prompt{ display:none; }
@@ -264,20 +261,21 @@
 
   /* ---------- Bottom nav ---------- */
   .bottom-nav{
-    position:fixed; left:0; right:0; bottom:0;
+    flex:0 0 auto;
     display:flex; justify-content:space-around;
-    background:rgba(10,15,28,0.88); backdrop-filter:blur(16px);
-    border-top:1px solid var(--glass-border);
-    padding:9px 6px calc(9px + env(safe-area-inset-bottom,0px));
-    z-index:50;
+    background:var(--glass); backdrop-filter:blur(16px);
+    border:1px solid var(--glass-border);
+    border-radius:16px;
+    margin-top:6px;
+    padding:4px 6px;
   }
   .nav-item{
     border:none; background:transparent; color:var(--ink-faint);
-    display:flex; flex-direction:column; align-items:center; gap:3px;
-    font-size:9.5px; font-weight:700; padding:4px 6px; border-radius:12px;
+    display:flex; flex-direction:row; align-items:center; gap:4px; justify-content:center;
+    font-size:8.5px; font-weight:700; padding:5px 4px; border-radius:10px; flex:1;
   }
-  .nav-item span{ font-size:16px; }
-  .nav-item.active{ color:var(--acc-light); }
+  .nav-item .ic{ font-size:13px; }
+  .nav-item.active{ color:var(--acc-light); background:rgba(255,255,255,0.06); }
 
   /* ---------- モーダル共通 ---------- */
   .modal-overlay{
@@ -373,15 +371,15 @@
     </div>
 
     <div class="dash-overlay-left">
-      <div class="glass date-card">
-        <div class="date-year" id="hp-year">2026</div>
-        <div class="date-big"><span id="hp-md">09.25</span><span class="date-dow" id="hp-dow">Fri</span></div>
+      <div class="glass panel-left">
+        <div class="date-row"><span class="date-big" id="hp-md">09.25</span><span class="date-dow" id="hp-dow">Fri</span></div>
         <div class="date-greeting" id="hp-greeting"></div>
-      </div>
-      <div class="glass schedule-card">
-        <div class="card-head"><span class="ic" data-icon="calendar"></span> TODAY'S SCHEDULE</div>
-        <div id="hp-schedule-list"></div>
-        <button class="add-schedule-btn" id="hp-add-schedule">＋ 予定を追加</button>
+        <div class="panel-divider"></div>
+        <div class="card-head">
+          <span><span class="ic" data-icon="calendar"></span> SCHEDULE</span>
+          <button type="button" class="card-head-addbtn" id="hp-add-schedule" title="予定を追加">＋</button>
+        </div>
+        <div id="hp-schedule-list" class="sch-list"></div>
         <div class="next-block">
           <div class="next-label">NEXT</div>
           <div id="hp-next-item" class="next-item">予定はありません</div>
@@ -397,22 +395,18 @@
     </div>
 
     <div class="dash-overlay-right">
-      <div class="glass greet-banner">
-        <div class="mini-avatar" id="hp-mini-avatar"></div>
-        <div class="greet-text" id="hp-greet-banner">今日もがんばろうね。</div>
-      </div>
-      <div class="glass money-card">
-        <div class="money-row"><span class="mr-ic ic" data-icon="wallet"></span><span class="mr-label">所持金</span><span class="mr-val" id="hp-wallet">¥0</span></div>
-        <div class="money-row"><span class="mr-ic ic" data-icon="calendar"></span><span class="mr-label">今月の収支</span><span class="mr-val" id="hp-month-balance">¥0</span></div>
-        <div class="money-row"><span class="mr-ic ic" data-icon="banknote"></span><span class="mr-label">次の給料日</span><span class="mr-val" id="hp-next-payday">-</span></div>
-      </div>
-      <div class="glass notice-card">
+      <div class="glass panel-right">
+        <div class="money-card">
+          <div class="money-row"><span class="mr-ic ic" data-icon="wallet"></span><span class="mr-label">所持金</span><span class="mr-val" id="hp-wallet">¥0</span></div>
+          <div class="money-row"><span class="mr-ic ic" data-icon="calendar"></span><span class="mr-label">今月の収支</span><span class="mr-val" id="hp-month-balance">¥0</span></div>
+          <div class="money-row"><span class="mr-ic ic" data-icon="banknote"></span><span class="mr-label">給料日</span><span class="mr-val" id="hp-next-payday">-</span></div>
+        </div>
         <div class="card-head-sm">お知らせ</div>
-        <div id="hp-notice-list"></div>
+        <div id="hp-notice-list" class="notice-wrap"></div>
+        <button type="button" class="char-settings-link" id="hp-char-settings-open">
+          <span class="ic" data-icon="sliders"></span> キャラクター設定・イラストの変更
+        </button>
       </div>
-      <button type="button" class="glass char-settings-banner" id="hp-char-settings-open">
-        <span><span class="ic" data-icon="sliders"></span> キャラクター設定</span><span class="csb-sub">イラスト・テーマカラーは設定から変更 ›</span>
-      </button>
     </div>
   </main>
 
