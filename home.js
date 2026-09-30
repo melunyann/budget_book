@@ -205,7 +205,6 @@ function applyIcons(root){
 /* ---------------- 表示：日付・グリーティング ---------------- */
 function renderDate(){
   const now = new Date();
-  $('hp-year').textContent = now.getFullYear() + '年';
   $('hp-md').textContent = `${pad2(now.getMonth()+1)}.${pad2(now.getDate())}`;
   $('hp-dow').textContent = YOUBI_EN[now.getDay()];
 
@@ -271,7 +270,6 @@ function renderSpeech(nextItem){
     msg = `おかえり、\n今日はもう特に予定はなさそう。\nゆっくり休んでね。`;
   }
   $('hp-speech-text').textContent = msg;
-  $('hp-greet-banner').textContent = nextItem ? '今日もがんばろうね。' : '今日もお疲れさま。';
 }
 
 /* ---------------- 表示：お金まわり ---------------- */
@@ -366,7 +364,6 @@ function renderIllust(){
     bg.style.backgroundImage = 'none';
     empty.style.display = 'flex';
   }
-  $('hp-mini-avatar').style.backgroundImage = url ? `url('${url}')` : 'none';
 }
 
 /* ---------------- 全体再描画 ---------------- */
