@@ -69,10 +69,12 @@ input:focus{outline:none;border-color:var(--main);box-shadow:0 0 0 3px var(--sof
 .gt .nm{display:flex;align-items:center;gap:8px;font-weight:700}
 .big{font:italic 600 30px "Cormorant Garamond",Georgia,serif;color:var(--deep)}
 .orn{display:block;margin:0 auto 4px;color:var(--main)}
+.acct{text-align:right;min-height:26px}.acct button{border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:999px;padding:4px 12px;font:inherit;font-size:11px;cursor:pointer}.acct span{font-size:11px;color:var(--deep);margin-right:8px}
 </style>
 </head>
 <body>
 <div class="wrap">
+  <div class="acct" id="acct"></div>
   <div class="hd"><svg class="orn" id="orn" width="16" height="16" viewBox="0 0 24 24"></svg></div>
   <nav id="nav"></nav>
   <div id="app"></div>
@@ -93,7 +95,8 @@ function load(){
     return {tx:o.tx,cats:{exp:f(o.cats.exp),inc:f(o.cats.inc)},goals:o.goals.map((g,i)=>({id:g.id,n:g.n,target:g.target,saved:g.saved,c:i%8}))}}}catch(e){}
   return DEF();
 }
-function save(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
+function save(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}if(window.cloudPush)window.cloudPush()}
+function applyCloud(j){try{S=JSON.parse(j);localStorage.setItem(K,j)}catch(e){return}keep();render()}
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const yen=n=>Math.round(n).toLocaleString('ja-JP')+'円';
@@ -231,6 +234,60 @@ function render(){
   $('#app').innerHTML=({home:vHome,week:vWeek,month:vMonth,save:vSave,set:vSet})[tab]();
 }
 render();
+</script>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,doc,setDoc,onSnapshot} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ▼▼ ここをFirebaseでもらった設定に書き換える ▼▼
+const firebaseConfig={
+  apiKey:"YOUR_API_KEY",
+  authDomain:"YOUR_PROJECT.firebaseapp.com",
+  projectId:"YOUR_PROJECT",
+  storageBucket:"YOUR_PROJECT.appspot.com",
+  messagingSenderId:"YOUR_SENDER_ID",
+  appId:"YOUR_APP_ID"
+};
+// ▲▲ ここまで ▲▲
+
+if(firebaseConfig.apiKey!=="YOUR_API_KEY"){
+  const app=initializeApp(firebaseConfig);
+  const auth=getAuth(app),db=getFirestore(app);
+  const box=document.getElementById('acct');
+  let unsub=null,timer=null;
+  onAuthStateChanged(auth,user=>{
+    if(unsub){unsub();unsub=null}
+    window.cloudPush=null;
+    if(!user){
+      box.innerHTML='<button id="li">Googleでログイン</button>';
+      document.getElementById('li').onclick=()=>signInWithPopup(auth,new GoogleAuthProvider()).catch(e=>alert('ログインできなかったよ: '+e.code));
+      return;
+    }
+    box.innerHTML='<span>同期中</span><button id="lo">ログアウト</button>';
+    document.getElementById('lo').onclick=()=>signOut(auth);
+    const ref=doc(db,'users',user.uid);
+    const push=()=>setDoc(ref,{json:JSON.stringify(S),updated:Date.now()}).catch(e=>console.error(e));
+    window.cloudPush=()=>{clearTimeout(timer);timer=setTimeout(push,600)};
+    let first=true;
+    unsub=onSnapshot(ref,snap=>{
+      if(snap.metadata.hasPendingWrites)return;
+      const d=snap.exists()?snap.data():null;
+      if(first){
+        first=false;
+        const had=localStorage.getItem('kakeibo-uid')===user.uid;
+        try{localStorage.setItem('kakeibo-uid',user.uid)}catch(e){}
+        if(!d){push();return}
+        if(d.json===JSON.stringify(S))return;
+        const empty=S.tx.length===0&&S.goals.length===0;
+        if(had||empty||confirm('クラウドにもうデータがあるよ。\nOK＝クラウドのデータを使う\nキャンセル＝この端末のデータでクラウドを上書き'))applyCloud(d.json);
+        else push();
+        return;
+      }
+      if(d&&d.json!==JSON.stringify(S))applyCloud(d.json);
+    },e=>console.error(e));
+  });
+}
 </script>
 </body>
 </html>
