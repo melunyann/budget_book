@@ -241,27 +241,14 @@ import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} f
 import {getFirestore,doc,setDoc,onSnapshot} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ▼▼ ここをFirebaseでもらった設定に書き換える ▼▼
-  
-<script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
-
-  // Your web app's Firebase configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyCVD3w287efa-iPA71qhy_DQCFG5zi0co0",
-    authDomain: "budget-book-a88f4.firebaseapp.com",
-    projectId: "budget-book-a88f4",
-    storageBucket: "budget-book-a88f4.firebasestorage.app",
-    messagingSenderId: "674904715182",
-    appId: "1:674904715182:web:c81a98f7cf373e6f14623f"
-  };
-
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-</script>
-  
+const firebaseConfig={
+  apiKey:"AIzaSyCVD3w287efa-iPA71qhy_DQCFG5zi0co0",
+  authDomain:"budget-book-a88f4.firebaseapp.com",
+  projectId:"budget-book-a88f4",
+  storageBucket:"budget-book-a88f4.firebasestorage.app",
+  messagingSenderId:"674904715182",
+  appId:"1:674904715182:web:c81a98f7cf373e6f14623f"
+};
 // ▲▲ ここまで ▲▲
 
 if(firebaseConfig.apiKey!=="YOUR_API_KEY"){
