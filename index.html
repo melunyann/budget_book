@@ -1,427 +1,236 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>おかねびより | ホーム</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2238%22 fill=%22none%22 stroke=%22%236FB8DE%22 stroke-width=%2210%22/></svg>">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="manifest" href="manifest.json">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kakeibo | ふわふわ家計簿</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500;1,600&family=Zen+Maru+Gothic:wght@400;500;700&display=swap">
 <style>
-  :root{
-    --bg0:#080C16;
-    --bg1:#121A2E;
-    --bg2:#1B2745;
-    --ink:#EDF2FB;
-    --ink-soft:#9AA8C7;
-    --ink-faint:#5F6D8E;
-    --glass:rgba(16,23,42,0.56);
-    --glass-strong:rgba(16,23,42,0.72);
-    --glass-border:rgba(255,255,255,0.10);
-    --danger:#FF9285;
-    --income-col:#8FD4E8;
-    /* テーマカラー（キャラクターのイメージカラー）。JSで動的に上書きされる */
-    --acc:#6FB8DE;
-    --acc-light:#BFE3F4;
-    --acc-dark:#3E86AC;
-    --acc-soft:rgba(111,184,222,0.20);
-    --acc-glow:rgba(111,184,222,0.45);
-    --radius-m:16px;
-    --radius-l:24px;
-    --radius-xl:28px;
-  }
-  *{ box-sizing:border-box; }
-  html,body{ margin:0; padding:0; height:100%; }
-  body{
-    position:relative;
-    height:100vh; height:100dvh;
-    display:flex; flex-direction:column;
-    background:
-      radial-gradient(circle at 15% 8%, rgba(255,255,255,0.05), transparent 40%),
-      radial-gradient(circle at 85% 15%, var(--acc-soft), transparent 45%),
-      linear-gradient(165deg, var(--bg0) 0%, var(--bg1) 45%, var(--bg2) 100%);
-    color:var(--ink);
-    font-family:'Zen Kaku Gothic New', sans-serif;
-    -webkit-font-smoothing:antialiased;
-    padding:calc(6px + env(safe-area-inset-top,0px)) 8px calc(4px + env(safe-area-inset-bottom,0px));
-    overflow:hidden;
-  }
-  h1,h2,h3,.brand-mini,.date-big,.lv-chip,.card-head,.money-card .mr-val{ font-family:'Zen Maru Gothic', sans-serif; }
-  button{ font-family:inherit; cursor:pointer; }
-  .icon{ width:1em; height:1em; display:inline-block; vertical-align:-0.15em; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
-  @keyframes shine-sweep{ 0%{ transform:translateX(-120%); } 100%{ transform:translateX(220%); } }
-
-  .shell{ flex:1; min-height:0; display:flex; flex-direction:column; max-width:1180px; width:100%; margin:0 auto; }
-
-  /* ---------- Top bar ---------- */
-  .top-bar{
-    flex:0 0 auto;
-    display:flex; align-items:center; justify-content:space-between;
-    padding:2px 4px 6px;
-    gap:8px;
-  }
-  .brand-mini{ font-weight:900; font-size:14px; display:flex; align-items:center; gap:6px; }
-  .brand-spark{ color:var(--acc-light); }
-  .top-right{ display:flex; align-items:center; gap:6px; }
-  .lv-chip{
-    display:flex; align-items:center; gap:6px;
-    background:var(--glass); border:1px solid var(--glass-border);
-    border-radius:16px; padding:4px 9px;
-    font-size:10.5px; font-weight:700; color:var(--ink-soft);
-    backdrop-filter:blur(10px);
-  }
-  .lv-chip .lv-num{ color:var(--ink); font-size:11px; }
-  .lv-bar-track{ width:44px; height:5px; border-radius:4px; background:rgba(255,255,255,0.12); overflow:hidden; position:relative; }
-  .lv-bar-fill{ height:100%; background:linear-gradient(90deg, var(--acc), var(--acc-light)); border-radius:4px; position:relative; overflow:hidden; transition:width .4s ease; }
-  .lv-bar-fill::after{
-    content:""; position:absolute; inset:0; width:40%;
-    background:linear-gradient(90deg, transparent, rgba(255,255,255,0.75), transparent);
-    animation:shine-sweep 2.6s ease-in-out infinite;
-  }
-  .wallet-chip{
-    display:flex; align-items:center; gap:5px;
-    background:var(--glass); border:1px solid var(--glass-border);
-    border-radius:16px; padding:5px 10px; font-weight:800; font-size:11px;
-    backdrop-filter:blur(10px);
-    box-shadow:0 0 0 0 var(--acc-glow);
-    animation:wallet-pulse 3.4s ease-in-out infinite;
-  }
-  @keyframes wallet-pulse{
-    0%,100%{ box-shadow:0 0 0 0 transparent; }
-    50%{ box-shadow:0 0 14px 1px var(--acc-glow); }
-  }
-  .icon-btn{
-    position:relative;
-    width:30px; height:30px; border-radius:50%;
-    background:var(--glass); border:1px solid var(--glass-border);
-    color:var(--ink); font-size:13px;
-    display:flex; align-items:center; justify-content:center;
-    backdrop-filter:blur(10px);
-    flex-shrink:0;
-  }
-  .badge-dot{ position:absolute; top:6px; right:7px; width:7px; height:7px; border-radius:50%; background:var(--danger); border:1.5px solid var(--bg1); }
-
-  /* ---------- Dash (メインフレーム / 横画面のゲーム風ウィンドウ) ---------- */
-  .dash{
-    position:relative;
-    flex:1; min-height:0;
-    border-radius:var(--radius-xl);
-    overflow:hidden;
-    background:linear-gradient(160deg, var(--bg1), var(--bg2));
-    box-shadow:0 24px 60px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.05), inset 0 0 0 6px rgba(0,0,0,0.15);
-  }
-  .dash::before{
-    content:""; position:absolute; inset:6px; border-radius:calc(var(--radius-xl) - 6px);
-    border:1px solid var(--acc-soft); pointer-events:none; z-index:4;
-  }
-  .dash-corner{
-    position:absolute; width:18px; height:18px; z-index:5; color:var(--acc-light); opacity:.85; pointer-events:none;
-  }
-  .dash-corner svg{ width:100%; height:100%; }
-  .dash-corner.tl{ top:10px; left:10px; }
-  .dash-corner.tr{ top:10px; right:10px; transform:scaleX(-1); }
-  .dash-corner.bl{ bottom:10px; left:10px; transform:scaleY(-1); }
-  .dash-corner.br{ bottom:10px; right:10px; transform:scale(-1,-1); }
-  .dash-illust{
-    position:absolute; inset:0; width:100%; height:100%;
-    background-size:cover; background-position:50% 12%;
-    transition:opacity .3s ease;
-  }
-  .dash-illust::after{
-    content:""; position:absolute; inset:0;
-    background:linear-gradient(180deg, rgba(8,12,22,0.15) 0%, rgba(8,12,22,0) 30%, rgba(8,12,22,0.55) 100%);
-  }
-  .illust-empty{
-    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
-    color:var(--ink-soft); text-align:center; padding:14px; z-index:2;
-  }
-  .illust-empty .ie-icon{ font-size:30px; opacity:.8; }
-  .illust-empty .ie-text{ font-size:11px; }
-  .btn-upload{
-    border:none; border-radius:18px; padding:7px 16px; font-weight:700; font-size:11.5px;
-    background:linear-gradient(135deg, var(--acc), var(--acc-dark)); color:#fff;
-    box-shadow:0 8px 20px var(--acc-glow);
-  }
-
-  .dash-overlay-left{
-    position:absolute; left:8px; top:8px; bottom:8px;
-    width:clamp(150px,25vw,215px); max-width:44%;
-    display:flex; z-index:3;
-  }
-  .dash-overlay-right{
-    position:absolute; right:8px; top:8px; bottom:8px;
-    width:clamp(150px,25vw,215px); max-width:40%;
-    display:flex; z-index:3;
-  }
-  .dash-speech{
-    position:absolute; left:8px; right:8px; bottom:8px;
-    max-width:56%; z-index:3;
-    display:flex; align-items:flex-end; gap:8px;
-  }
-
-  .glass{
-    background:var(--glass); border:1px solid var(--glass-border);
-    border-radius:var(--radius-m); backdrop-filter:blur(14px);
-    padding:9px 11px;
-  }
-
-  /* 左パネル：日付＋スケジュールを1枚のカードにまとめる */
-  .panel-left{ width:100%; display:flex; flex-direction:column; min-height:0; }
-  .date-row{ display:flex; align-items:baseline; gap:6px; flex-shrink:0; }
-  .date-big{ font-size:17px; font-weight:900; line-height:1.1; white-space:nowrap; }
-  .date-dow{ font-size:10.5px; color:var(--acc-light); font-weight:700; }
-  .date-greeting{
-    font-size:9.5px; color:var(--ink-soft); margin-top:2px; line-height:1.4;
-    flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  }
-  .panel-divider{ height:1px; background:var(--glass-border); margin:6px 0; flex-shrink:0; }
-  .card-head{
-    font-size:10px; font-weight:800; color:var(--ink-soft); letter-spacing:.02em;
-    display:flex; align-items:center; justify-content:space-between; gap:6px; flex-shrink:0;
-  }
-  .card-head-addbtn{
-    width:18px; height:18px; border-radius:50%; border:1px solid var(--glass-border);
-    background:rgba(255,255,255,0.05); color:var(--ink-soft); font-size:12px; line-height:1;
-    display:flex; align-items:center; justify-content:center; flex-shrink:0;
-  }
-  .sch-list{ flex:1; min-height:0; overflow-y:auto; margin-top:4px; }
-  .sch-item{
-    display:flex; align-items:baseline; gap:5px; padding:2px 0 2px 7px;
-    border-left:2px solid var(--acc); margin-bottom:2px; font-size:10px;
-  }
-  .sch-item.work{ border-left-color:#F2617E; }
-  .sch-time{ color:var(--ink-faint); font-weight:700; flex-shrink:0; }
-  .sch-title{ font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .sch-empty{ font-size:10px; color:var(--ink-faint); padding:4px 0; }
-  .next-block{ margin-top:5px; padding-top:5px; border-top:1px solid var(--glass-border); flex-shrink:0; }
-  .next-label{ font-size:8.5px; font-weight:800; color:var(--acc-light); letter-spacing:.06em; }
-  .next-item{ font-size:10px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .next-item .ni-time{ color:var(--ink-faint); font-weight:700; margin-right:5px; }
-
-  /* 右パネル：所持金・お知らせ・設定導線を1枚のカードにまとめる */
-  .panel-right{ width:100%; display:flex; flex-direction:column; min-height:0; }
-  .money-card{ flex-shrink:0; }
-  .notice-wrap{ flex:1; min-height:0; overflow-y:auto; margin-top:4px; }
-  .speech-tag{
-    flex-shrink:0; background:var(--acc); color:#fff; font-weight:800; font-size:10px;
-    padding:5px 10px; border-radius:14px; margin-bottom:2px; box-shadow:0 6px 16px var(--acc-glow);
-    display:inline-block;
-  }
-  .speech-bubble{
-    background:rgba(255,255,255,0.94); color:#2A3450; border-radius:16px 16px 16px 4px;
-    padding:8px 12px; font-size:10.5px; line-height:1.55; font-weight:600;
-    box-shadow:0 10px 26px rgba(0,0,0,0.3); white-space:pre-line; max-width:100%;
-  }
-
-  .money-card .money-row{
-    display:flex; align-items:center; gap:6px; padding:4px 0;
-    border-bottom:1px solid var(--glass-border); font-size:10px;
-  }
-  .money-card .money-row:last-child{ border-bottom:none; }
-  .mr-ic{ width:14px; text-align:center; font-size:11px; }
-  .mr-label{ flex:1; color:var(--ink-soft); font-weight:700; }
-  .mr-val{ font-weight:800; font-size:11px; }
-  .mr-val.neg{ color:var(--danger); }
-  .mr-val.pos{ color:var(--income-col); }
-
-  .card-head-sm{ font-size:9.5px; font-weight:800; color:var(--ink-soft); }
-  .notice-row{ display:flex; align-items:flex-start; gap:5px; font-size:9.5px; padding:2px 0; line-height:1.4; }
-  .notice-row .ni-ic{ flex-shrink:0; }
-  .notice-row .ni-date{ color:var(--ink-faint); font-size:8.5px; white-space:nowrap; margin-left:4px; }
-  .notice-empty{ font-size:9.5px; color:var(--ink-faint); padding:3px 0; }
-
-  .char-settings-link{
-    flex-shrink:0; margin-top:4px; padding-top:5px; border-top:1px solid var(--glass-border);
-    border:none; background:transparent; text-align:left; display:flex; align-items:center; gap:5px;
-    color:var(--acc-light); font-size:9.5px; font-weight:800; width:100%;
-  }
-
-  /* ---------- 縦持ちのスマホでは「横にしてね」の案内を出す ---------- */
-  .rotate-prompt{ display:none; }
-  @media (max-width:900px) and (orientation:portrait){
-    .shell{ display:none; }
-    .rotate-prompt{
-      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
-      min-height:80vh; text-align:center; color:var(--ink-soft); padding:20px;
-    }
-    .rotate-prompt .rp-icon{ width:56px; height:56px; color:var(--acc-light); animation:rp-spin 2.4s ease-in-out infinite; }
-    .rotate-prompt .rp-title{ font-family:'Zen Maru Gothic',sans-serif; font-weight:800; font-size:16px; color:var(--ink); }
-    .rotate-prompt .rp-sub{ font-size:12.5px; line-height:1.7; max-width:280px; }
-  }
-  @keyframes rp-spin{ 0%,100%{ transform:rotate(0deg); } 50%{ transform:rotate(-90deg); } }
-
-  /* ---------- 星屑の装飾（ソシャゲ風の背景演出） ---------- */
-  .twinkle{
-    position:absolute; border-radius:50%; background:#fff; pointer-events:none;
-    animation:twinkle-fade 3.2s ease-in-out infinite;
-  }
-  @keyframes twinkle-fade{ 0%,100%{ opacity:.15; } 50%{ opacity:.8; } }
-
-  /* ---------- Bottom nav ---------- */
-  .bottom-nav{
-    flex:0 0 auto;
-    display:flex; justify-content:space-around;
-    background:var(--glass); backdrop-filter:blur(16px);
-    border:1px solid var(--glass-border);
-    border-radius:16px;
-    margin-top:6px;
-    padding:4px 6px;
-  }
-  .nav-item{
-    border:none; background:transparent; color:var(--ink-faint);
-    display:flex; flex-direction:row; align-items:center; gap:4px; justify-content:center;
-    font-size:8.5px; font-weight:700; padding:5px 4px; border-radius:10px; flex:1;
-  }
-  .nav-item .ic{ font-size:13px; }
-  .nav-item.active{ color:var(--acc-light); background:rgba(255,255,255,0.06); }
-
-  /* ---------- モーダル共通 ---------- */
-  .modal-overlay{
-    position:fixed; inset:0; background:rgba(6,9,18,0.6);
-    display:none; align-items:flex-end; justify-content:center; z-index:100;
-  }
-  .modal-overlay.show{ display:flex; }
-  .modal-sheet{
-    background:var(--bg1); border:1px solid var(--glass-border);
-    width:100%; max-width:520px; border-radius:26px 26px 0 0;
-    padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));
-    max-height:88vh; overflow-y:auto; color:var(--ink);
-  }
-  @media (min-width:640px){
-    .modal-overlay{ align-items:center; }
-    .modal-sheet{ border-radius:24px; max-height:82vh; }
-  }
-  .modal-handle{ width:38px; height:4px; border-radius:3px; background:var(--glass-border); margin:0 auto 14px; }
-  .modal-title{ font-size:16px; font-weight:800; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; }
-  .modal-close{ border:none; background:rgba(255,255,255,0.08); color:var(--ink); width:30px; height:30px; border-radius:50%; font-size:14px; }
-  .field{ margin-bottom:16px; }
-  .field label{ display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin-bottom:6px; }
-  .field .hint{ font-size:11px; color:var(--ink-faint); margin-top:5px; line-height:1.5; }
-  input[type=text], input[type=number], input[type=date], input[type=time]{
-    width:100%; padding:11px 12px; border-radius:12px; border:1.5px solid var(--glass-border);
-    background:rgba(255,255,255,0.05); font-size:14px; color:var(--ink); outline:none;
-  }
-  input[type=color]{ width:56px; height:40px; border:none; border-radius:10px; background:transparent; padding:0; }
-  .theme-color-row{ display:flex; align-items:center; gap:12px; }
-  .theme-swatches{ display:flex; gap:8px; flex-wrap:wrap; }
-  .theme-swatch{ width:26px; height:26px; border-radius:50%; border:2px solid rgba(255,255,255,0.2); }
-  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .btn{ border:none; border-radius:12px; padding:12px 18px; font-weight:700; font-size:14px; }
-  .btn-primary{ background:linear-gradient(135deg, var(--acc), var(--acc-dark)); color:#fff; width:100%; box-shadow:0 8px 20px var(--acc-glow); }
-  .btn-ghost{ background:rgba(255,255,255,0.06); color:var(--ink-soft); border:1.5px solid var(--glass-border); width:100%; }
-  .btn-danger-ghost{ background:rgba(255,146,133,0.1); color:var(--danger); border:1.5px solid rgba(255,146,133,0.3); width:100%; }
-  .illust-preview{
-    width:100%; height:140px; border-radius:14px; background-size:cover; background-position:50% 15%;
-    background-color:rgba(255,255,255,0.05); margin-bottom:10px;
-    display:flex; align-items:center; justify-content:center; color:var(--ink-faint); font-size:12px;
-    border:1px solid var(--glass-border);
-  }
-  .save-toast{
-    position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px);
-    background:var(--ink); color:var(--bg1); padding:10px 20px; border-radius:20px; font-size:13px;
-    font-weight:700; opacity:0; transition:all .25s ease; z-index:200; pointer-events:none;
-  }
-  .save-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+:root{--bg:#f4f9fe;--bg2:#e7f3fc;--card:#fff;--main:#bcdff5;--deep:#80b8e0;--soft:#eef7fd;--text:#4a6785;--sub:#a1b6c8;--exp:#a3bcea;--line:#e2eff9;--mk:#4a6279;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17202b;--bg2:#1c2a3a;--card:#1f2d3c;--main:#6fb2e0;--deep:#8cc6ee;--soft:#27405a;--text:#e1edf7;--sub:#8fa6bb;--exp:#9db8f0;--line:#2c4157;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#17202b;--bg2:#1c2a3a;--card:#1f2d3c;--main:#6fb2e0;--deep:#8cc6ee;--soft:#27405a;--text:#e1edf7;--sub:#8fa6bb;--exp:#9db8f0;--line:#2c4157;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,var(--bg2) 0,var(--bg) 260px) var(--bg);background-repeat:no-repeat;color:var(--text);font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;font-size:14px;letter-spacing:.03em}
+svg{vertical-align:-2px}
+.wrap{max-width:540px;margin:0 auto;padding:22px 14px 64px}
+.hd{text-align:center;margin-bottom:10px;color:var(--deep)}
+.hd h1{margin:0;font:italic 600 38px "Cormorant Garamond",Georgia,serif;letter-spacing:.06em}
+.hd p{margin:2px 0 0;font-size:11px;color:var(--sub);letter-spacing:.3em}
+nav{display:flex;justify-content:center;gap:4px;padding:8px 0 12px;position:sticky;top:0;z-index:5;background:linear-gradient(var(--bg2) 70%,transparent)}
+nav button{border:0;background:none;padding:7px 13px;font:inherit;font-size:13px;color:var(--sub);cursor:pointer;border-bottom:1.5px solid transparent;letter-spacing:.12em}
+nav button.on{color:var(--deep);border-color:var(--main);font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px 16px;margin-bottom:14px;box-shadow:0 6px 20px rgba(106,166,209,.10)}
+h2{margin:0 0 12px;display:flex;align-items:baseline;gap:8px;font-weight:500}
+h2 i{font:italic 600 21px "Cormorant Garamond",Georgia,serif;color:var(--deep);letter-spacing:.05em}
+h2 small{font-size:11px;color:var(--sub);letter-spacing:.15em}
+label{display:block;font-size:11px;color:var(--sub);margin:12px 0 4px;letter-spacing:.15em}
+input{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;background:var(--bg);color:var(--text)}
+input:focus{outline:none;border-color:var(--main);box-shadow:0 0 0 3px var(--soft)}
+.seg{display:flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--bg)}
+.seg button{flex:1;border:0;border-radius:999px;padding:8px;background:none;font:inherit;color:var(--sub);cursor:pointer;letter-spacing:.2em}
+.seg button.on{background:var(--main);color:#3a6585;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 14px;font:inherit;font-size:12px;color:var(--text);cursor:pointer}
+.chip.on{border-color:var(--main);background:var(--soft);font-weight:700}
+.mk{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;font-size:11px;font-weight:700;color:#4a6279;flex:none}
+.main{width:100%;margin-top:18px;border:0;border-radius:999px;padding:12px;background:linear-gradient(135deg,var(--main),var(--deep));color:#3a6585;font:inherit;font-weight:700;font-size:14px;letter-spacing:.25em;cursor:pointer;box-shadow:0 6px 14px rgba(106,166,209,.3)}
+.sum{display:grid;grid-template-columns:repeat(3,1fr);text-align:center}
+.sum div{padding:4px 2px;border-right:1px solid var(--line)}
+.sum div:last-child{border:0}
+.sum small{display:block;color:var(--sub);font-size:10px;letter-spacing:.2em;margin-bottom:3px}
+.sum b{font-size:14px;font-weight:700}
+.e{color:var(--exp)}.i{color:var(--deep)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border:0}
+.rt{flex:1;min-width:0}.rt b{display:block;font-size:13px;font-weight:500}.rt small{color:var(--sub);font-size:11px;overflow-wrap:anywhere}
+.amt{font-weight:700;font-size:13px;white-space:nowrap}
+.x{border:0;background:none;color:var(--sub);font-size:18px;line-height:1;cursor:pointer;padding:2px 4px}
+.nv{display:flex;align-items:center;justify-content:space-between;margin:2px 4px 14px}
+.nv button{border:1px solid var(--line);background:var(--card);color:var(--deep);width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer}
+.nv span{font:italic 600 19px "Cormorant Garamond","Zen Maru Gothic",serif;color:var(--deep);letter-spacing:.05em}
+.bars{display:flex;gap:7px;align-items:flex-end;height:140px;margin-top:4px}
+.bc{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:9px;color:var(--sub);text-align:center}
+.bc i{display:block;width:100%;max-width:26px;background:linear-gradient(var(--exp),#c5d6f5);border-radius:99px 99px 6px 6px;min-height:3px}
+.bc em{font-style:normal;margin-top:5px;font-size:11px;color:var(--text);line-height:1.3}
+.br{margin:10px 0}.br .t{display:flex;justify-content:space-between;align-items:center;font-size:12px}
+.br .t span:first-child{display:flex;align-items:center;gap:7px}
+.br .b{height:6px;background:var(--bg);border-radius:99px;margin-top:5px;overflow:hidden}
+.br .b i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#c5d6f5,var(--exp))}
+.br.inc .b i{background:linear-gradient(90deg,var(--main),var(--deep))}
+.empty{text-align:center;color:var(--sub);padding:14px;font-size:12px;letter-spacing:.1em}
+.pg{height:10px;background:var(--bg);border:1px solid var(--line);border-radius:99px;margin:12px 0 8px;position:relative}
+.pg i{display:block;height:100%;background:linear-gradient(90deg,var(--main),var(--deep));border-radius:99px}
+.pg svg{position:absolute;top:-6px;color:var(--exp);margin-left:-9px;width:20px;height:20px}
+.acts{display:flex;gap:6px;margin-top:12px}.acts input{flex:1}
+.sm{border:1px solid var(--main);border-radius:999px;padding:0 14px;background:var(--soft);color:var(--deep);font:inherit;font-weight:700;cursor:pointer;white-space:nowrap}
+.two{display:flex;gap:6px}
+.gt{display:flex;justify-content:space-between;align-items:center}
+.gt .nm{display:flex;align-items:center;gap:8px;font-weight:700}
+.big{font:italic 600 30px "Cormorant Garamond",Georgia,serif;color:var(--deep)}
+.orn{display:block;margin:0 auto 4px;color:var(--main)}
 </style>
 </head>
 <body>
-
-<span class="twinkle" style="width:2px;height:2px;top:6%;left:12%;animation-delay:0s;"></span>
-<span class="twinkle" style="width:3px;height:3px;top:14%;left:78%;animation-delay:.6s;"></span>
-<span class="twinkle" style="width:2px;height:2px;top:22%;left:45%;animation-delay:1.2s;"></span>
-<span class="twinkle" style="width:2px;height:2px;top:65%;left:6%;animation-delay:1.8s;"></span>
-<span class="twinkle" style="width:3px;height:3px;top:78%;left:92%;animation-delay:.3s;"></span>
-<span class="twinkle" style="width:2px;height:2px;top:88%;left:35%;animation-delay:2.1s;"></span>
-
-<div class="rotate-prompt" id="hp-rotate-prompt">
-  <svg class="rp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="5" y="2" width="14" height="20" rx="2.5"/>
-    <line x1="10" y1="19" x2="14" y2="19"/>
-  </svg>
-  <div class="rp-title">端末を横向きにしてね</div>
-  <div class="rp-sub">このホーム画面は横画面での表示を想定しています。端末を回転するか、ブラウザの画面を横に広げてみてください。</div>
+<div class="wrap">
+  <div class="hd"><svg class="orn" id="orn" width="16" height="16" viewBox="0 0 24 24"></svg></div>
+  <nav id="nav"></nav>
+  <div id="app"></div>
 </div>
+<script>
+const K='kakeibo-v2';
+const SP='<path d="M12 2c.8 5.2 2.8 7.2 8 8-5.2.8-7.2 2.8-8 8-.8-5.2-2.8-7.2-8-8 5.2-.8 7.2-2.8 8-8z" fill="currentColor"/>';
+const spark=(n)=>`<svg width="${n}" height="${n}" viewBox="0 0 24 24">${SP}</svg>`;
+const heart='<svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.3 2.8 4.8 6.2 4.8c2.1 0 3.9 1.2 5.8 3.4 1.9-2.2 3.7-3.4 5.8-3.4 3.4 0 5.3 3.5 3.8 7-2.1 4.6-9.6 9.2-9.6 9.2z" fill="currentColor"/></svg>';
+const PAL=['#cfe6f7','#f7d3dc','#ddd6f3','#d3eee6','#fbe6c8','#e4efc9','#f4d5ec','#cde9f1'];
+const mkc=(a)=>a.map((n,i)=>({n:n,c:i%8}));
+const DEF=()=>({tx:[],cats:{exp:mkc(['食費','日用品','交通','住居','光熱費','通信','美容','カフェ','趣味']),inc:mkc(['給料','おこづかい','副収入'])},goals:[]});
+let S=load();
+function load(){
+  try{const d=JSON.parse(localStorage.getItem(K));if(d&&d.tx&&d.cats&&d.goals)return d}catch(e){}
+  try{const o=JSON.parse(localStorage.getItem('kakeibo-v1'));if(o&&o.tx&&o.cats&&o.goals){
+    const f=a=>a.map((c,i)=>({n:c.n,c:i%8}));
+    return {tx:o.tx,cats:{exp:f(o.cats.exp),inc:f(o.cats.inc)},goals:o.goals.map((g,i)=>({id:g.id,n:g.n,target:g.target,saved:g.saved,c:i%8}))}}}catch(e){}
+  return DEF();
+}
+function save(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const yen=n=>Math.round(n).toLocaleString('ja-JP')+'円';
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const uid=()=>Date.now()*1000+Math.floor(Math.random()*1000);
+const sum=(a,t)=>a.filter(x=>x.type===t).reduce((s,x)=>s+x.amt,0);
+const mk=()=>'';
+const mkt=(t,n)=>{const c=S.cats[t].find(c=>c.n===n);return mk(n,c?c.c:0)};
+const sh=(en,jp)=>`<h2><i>${en}</i><small>${jp}</small></h2>`;
+const TABS=[['home','きろく'],['week','週'],['month','月'],['save','貯金'],['set','項目']];
+let tab='home',wOff=0,mOff=0;
+let F={type:'exp',cat:0,date:ymd(new Date()),amt:'',memo:''};
 
-<div class="shell">
-  <header class="top-bar">
-    <div class="brand-mini">おかねびより</div>
-    <div class="top-right">
-      <div class="lv-chip">
-        <span class="lv-num">Lv.<span id="hp-lv">1</span></span>
-        <div class="lv-bar-track"><div class="lv-bar-fill" id="hp-lv-fill" style="width:0%;"></div></div>
-        <span>あと<span id="hp-lv-next">10</span></span>
-      </div>
-      <div class="wallet-chip"><span class="ic" data-icon="coin" style="font-size:14px;"></span> <span id="hp-wallet-mini">¥0</span></div>
-      <button class="icon-btn" id="hp-settings-btn" title="設定"><span class="ic" data-icon="sliders" style="font-size:16px;"></span></button>
-    </div>
-  </header>
+function keep(){const a=$('#fd');if(a){F.date=a.value;F.amt=$('#fa').value;F.memo=$('#fm').value}}
+function setTab(t){tab=t;render()}
+function setType(t){keep();F.type=t;F.cat=0;render()}
+function setCat(i){keep();F.cat=i;render()}
+function addTx(){
+  keep();const amt=Math.floor(Number(F.amt));const c=S.cats[F.type][F.cat];
+  if(!(amt>0)||!F.date||!c){alert('金額と項目を入れてね');return}
+  S.tx.push({id:uid(),date:F.date,type:F.type,cat:c.n,amt:amt,memo:F.memo.trim()});
+  save();F.amt='';F.memo='';render();
+}
+function delTx(id){if(confirm('このきろくを消す？')){S.tx=S.tx.filter(t=>t.id!==id);save();render()}}
 
-  <main class="dash" id="hp-dash">
-    <div class="dash-corner tl" data-icon="cornerBracket"></div>
-    <div class="dash-corner tr" data-icon="cornerBracket"></div>
-    <div class="dash-corner bl" data-icon="cornerBracket"></div>
-    <div class="dash-corner br" data-icon="cornerBracket"></div>
-    <div class="dash-illust" id="hp-illust-bg"></div>
-    <div class="illust-empty" id="hp-illust-empty">
-      <span class="ic" data-icon="image" style="font-size:40px; opacity:.8;"></span>
-      <div class="ie-text">キャラクターのイラストを追加してね</div>
-      <button type="button" class="btn-upload" id="hp-illust-upload-btn">設定でイラストを追加</button>
-    </div>
+function rows(list){
+  if(!list.length)return '<div class="empty">まだなにもないよ</div>';
+  return list.map(t=>`<div class="row">${mkt(t.type,t.cat)}<div class="rt"><b>${esc(t.cat)}</b><small>${t.date.slice(5).replace('-','/')} ${esc(t.memo)}</small></div><span class="amt ${t.type==='exp'?'e':'i'}">${t.type==='exp'?'-':'+'}${yen(t.amt)}</span><button class="x" onclick="delTx(${t.id})">×</button></div>`).join('');
+}
+function summary(a){
+  const e=sum(a,'exp'),i=sum(a,'inc');
+  return `<div class="sum"><div><small>INCOME</small><b class="i">${yen(i)}</b></div><div><small>EXPENSE</small><b class="e">${yen(e)}</b></div><div><small>BALANCE</small><b>${yen(i-e)}</b></div></div>`;
+}
+function breakdown(a,t){
+  const m={};a.filter(x=>x.type===t).forEach(x=>m[x.cat]=(m[x.cat]||0)+x.amt);
+  const ent=Object.entries(m).sort((x,y)=>y[1]-x[1]);const tot=ent.reduce((s,x)=>s+x[1],0);
+  if(!ent.length)return '<div class="empty">まだなにもないよ</div>';
+  return ent.map(([n,v])=>`<div class="br ${t}"><div class="t"><span>${mkt(t,n)}${esc(n)}</span><span>${yen(v)}</span></div><div class="b"><i style="width:${(v/tot*100).toFixed(1)}%"></i></div></div>`).join('');
+}
 
-    <div class="dash-overlay-left">
-      <div class="glass panel-left">
-        <div class="date-row"><span class="date-big" id="hp-md">09.25</span><span class="date-dow" id="hp-dow">Fri</span></div>
-        <div class="date-greeting" id="hp-greeting"></div>
-        <div class="panel-divider"></div>
-        <div class="card-head">
-          <span><span class="ic" data-icon="calendar"></span> SCHEDULE</span>
-          <button type="button" class="card-head-addbtn" id="hp-add-schedule" title="予定を追加">＋</button>
-        </div>
-        <div id="hp-schedule-list" class="sch-list"></div>
-        <div class="next-block">
-          <div class="next-label">NEXT</div>
-          <div id="hp-next-item" class="next-item">予定はありません</div>
-        </div>
-      </div>
-    </div>
+function vHome(){
+  const now=new Date(),pre=now.getFullYear()+'-'+pad(now.getMonth()+1);
+  const a=S.tx.filter(t=>t.date.startsWith(pre)).sort((x,y)=>y.date.localeCompare(x.date)||y.id-x.id);
+  return `<div class="card">${sh('Write','きろくする')}<div class="seg"><button class="${F.type==='exp'?'on':''}" onclick="setType('exp')">支出</button><button class="${F.type==='inc'?'on':''}" onclick="setType('inc')">収入</button></div>
+  <label>DATE</label><input type="date" id="fd" value="${esc(F.date)}">
+  <label>AMOUNT（円）</label><input type="number" id="fa" inputmode="numeric" min="0" placeholder="0" value="${esc(F.amt)}">
+  <div class="chips">${S.cats[F.type].map((c,i)=>`<button class="chip ${i===F.cat?'on':''}" onclick="setCat(${i})">${mk(c.n,c.c)}${esc(c.n)}</button>`).join('')}</div>
+  <label>MEMO</label><input id="fm" maxlength="40" placeholder="ひとこと（なくてもOK）" value="${esc(F.memo)}">
+  <button class="main" onclick="addTx()">きろくする ${spark(12)}</button></div>
+  <div class="card">${sh('This month',now.getMonth()+1+'月のようす')}${summary(a)}</div>
+  <div class="card">${sh('Notebook','今月のきろく')}${rows(a.slice(0,40))}</div>`;
+}
 
-    <div class="dash-speech">
-      <div>
-        <div class="speech-tag" id="hp-char-name">アリス</div>
-        <div class="speech-bubble" id="hp-speech-text">おかえり。</div>
-      </div>
-    </div>
+function vWeek(){
+  const n=new Date();const d=(n.getDay()+6)%7;
+  const ws=new Date(n.getFullYear(),n.getMonth(),n.getDate()-d+wOff*7);
+  const we=new Date(ws.getFullYear(),ws.getMonth(),ws.getDate()+6);
+  const a=S.tx.filter(t=>t.date>=ymd(ws)&&t.date<=ymd(we)).sort((x,y)=>y.date.localeCompare(x.date));
+  const days=[];for(let k=0;k<7;k++)days.push(new Date(ws.getFullYear(),ws.getMonth(),ws.getDate()+k));
+  const vals=days.map(dd=>sum(a.filter(t=>t.date===ymd(dd)),'exp'));const mx=Math.max(...vals,1);
+  const nm='月火水木金土日';
+  const bars=days.map((dd,k)=>`<div class="bc"><span>${vals[k]?vals[k].toLocaleString('ja-JP'):''}</span><i style="height:${(vals[k]/mx*80).toFixed(0)}px"></i><em>${nm[k]}<br>${dd.getDate()}</em></div>`).join('');
+  return `<div class="nv"><button onclick="wOff--;render()">‹</button><span>${ws.getMonth()+1}/${ws.getDate()} – ${we.getMonth()+1}/${we.getDate()}${wOff===0?'  now':''}</span><button onclick="wOff++;render()">›</button></div>
+  <div class="card">${sh('Weekly','この週のまとめ')}${summary(a)}</div>
+  <div class="card">${sh('Daily','日ごとの支出')}<div class="bars">${bars}</div></div>
+  <div class="card">${sh('Category','支出の内訳')}${breakdown(a,'exp')}</div>
+  <div class="card">${sh('Notebook','この週のきろく')}${rows(a)}</div>`;
+}
 
-    <div class="dash-overlay-right">
-      <div class="glass panel-right">
-        <div class="money-card">
-          <div class="money-row"><span class="mr-ic ic" data-icon="wallet"></span><span class="mr-label">所持金</span><span class="mr-val" id="hp-wallet">¥0</span></div>
-          <div class="money-row"><span class="mr-ic ic" data-icon="calendar"></span><span class="mr-label">今月の収支</span><span class="mr-val" id="hp-month-balance">¥0</span></div>
-          <div class="money-row"><span class="mr-ic ic" data-icon="banknote"></span><span class="mr-label">給料日</span><span class="mr-val" id="hp-next-payday">-</span></div>
-        </div>
-        <div class="card-head-sm">お知らせ</div>
-        <div id="hp-notice-list" class="notice-wrap"></div>
-        <button type="button" class="char-settings-link" id="hp-char-settings-open">
-          <span class="ic" data-icon="sliders"></span> キャラクター設定・イラストの変更
-        </button>
-      </div>
-    </div>
-  </main>
+function vMonth(){
+  const n=new Date();const m=new Date(n.getFullYear(),n.getMonth()+mOff,1);
+  const pre=m.getFullYear()+'-'+pad(m.getMonth()+1);
+  const a=S.tx.filter(t=>t.date.startsWith(pre));
+  const last=new Date(m.getFullYear(),m.getMonth()+1,0).getDate();
+  const wk=[];for(let k=1;k<=Math.ceil(last/7);k++){
+    const s=(k-1)*7+1,e=Math.min(k*7,last);
+    const w=a.filter(t=>{const dd=Number(t.date.slice(8));return dd>=s&&dd<=e});
+    wk.push({k,s,e,v:sum(w,'exp')});
+  }
+  const mx=Math.max(...wk.map(w=>w.v),1);
+  const wr=wk.map(w=>`<div class="br"><div class="t"><span>第${w.k}週（${w.s}〜${w.e}日）</span><span>${yen(w.v)}</span></div><div class="b"><i style="width:${(w.v/mx*100).toFixed(1)}%"></i></div></div>`).join('');
+  return `<div class="nv"><button onclick="mOff--;render()">‹</button><span>${m.getFullYear()}.${pad(m.getMonth()+1)}${mOff===0?'  now':''}</span><button onclick="mOff++;render()">›</button></div>
+  <div class="card">${sh('Monthly','この月のまとめ')}${summary(a)}</div>
+  <div class="card">${sh('Week by week','週ごとの支出')}${wr}</div>
+  <div class="card">${sh('Expense','支出の内訳')}${breakdown(a,'exp')}</div>
+  <div class="card">${sh('Income','収入の内訳')}${breakdown(a,'inc')}</div>`;
+}
 
-  <nav class="bottom-nav">
-    <button class="nav-item active" data-href="index.html"><span class="ic" data-icon="home"></span><span>HOME</span></button>
-    <button class="nav-item" data-href="app.html?tab=month"><span class="ic" data-icon="calendar"></span><span>CALENDAR</span></button>
-    <button class="nav-item" data-href="app.html?tab=week"><span class="ic" data-icon="list"></span><span>SCHEDULE</span></button>
-    <button class="nav-item" data-href="app.html?tab=month"><span class="ic" data-icon="briefcase"></span><span>WORK</span></button>
-    <button class="nav-item" data-href="app.html?tab=ledger"><span class="ic" data-icon="coin"></span><span>MONEY</span></button>
-    <button class="nav-item" data-href="app.html?tab=settings"><span class="ic" data-icon="person"></span><span>MEMORY</span></button>
-  </nav>
-</div>
+function vSave(){
+  const tot=S.goals.reduce((s,g)=>s+g.saved,0);
+  const gs=S.goals.map(g=>{
+    const p=g.target>0?Math.min(100,g.saved/g.target*100):0;
+    return `<div class="card"><div class="gt"><span class="nm">${mk(g.n,g.c)}${esc(g.n)}</span><button class="x" onclick="delGoal(${g.id})">×</button></div>
+    <div class="pg"><i style="width:${p.toFixed(1)}%"></i>${p>0?`<span style="position:absolute;left:${p.toFixed(1)}%;top:0">${heart}</span>`:''}</div>
+    <div class="gt"><b>${yen(g.saved)}</b><span style="color:var(--sub);font-size:11px">${g.target>0?'目標 '+yen(g.target)+'（'+Math.floor(p)+'%）':'目標なし'}</span></div>
+    <div class="acts"><input type="number" inputmode="numeric" min="0" id="g${g.id}" placeholder="金額"><button class="sm" onclick="gMove(${g.id},1)">入れる</button><button class="sm" onclick="gMove(${g.id},-1)">出す</button></div></div>`;
+  }).join('');
+  return `<div class="card" style="text-align:center">${sh('Savings','積み立て・貯金ぜんぶ').replace('<h2>','<h2 style="justify-content:center">')}<div class="big">${yen(tot)}</div></div>
+  ${gs||'<div class="empty">貯金の枠をつくってみてね</div>'}
+  <div class="card">${sh('New pot','あたらしい枠')}
+  <label>NAME</label><input id="gn" maxlength="16" placeholder="旅行、ひっこし、おでかけ…">
+  <label>TARGET（目標金額・なくてもOK）</label><input type="number" id="gt" inputmode="numeric" min="0" placeholder="0"><button class="main" onclick="addGoal()">つくる ${spark(12)}</button></div>`;
+}
+function addGoal(){
+  const n=$('#gn').value.trim();if(!n){alert('なまえを入れてね');return}
+  S.goals.push({id:uid(),n:n,c:S.goals.length%8,target:Math.max(0,Math.floor(Number($('#gt').value))||0),saved:0});
+  save();render();
+}
+function gMove(id,s){
+  const g=S.goals.find(x=>x.id===id);const v=Math.floor(Number($('#g'+id).value));
+  if(!g||!(v>0))return;
+  g.saved=Math.max(0,g.saved+s*v);save();render();
+}
+function delGoal(id){if(confirm('この枠を消す？（貯金額もきえるよ）')){S.goals=S.goals.filter(g=>g.id!==id);save();render()}}
 
-<div class="save-toast" id="hp-toast">保存しました</div>
+function vSet(){
+  const blk=(t,en,jp)=>`<div class="card">${sh(en,jp)}<div class="chips" style="margin:0 0 14px">${S.cats[t].map((c,i)=>`<span class="chip">${mk(c.n,c.c)}${esc(c.n)}<button class="x" style="font-size:15px;padding:0 0 0 2px" onclick="delCat('${t}',${i})">×</button></span>`).join('')}</div>
+  <div class="two"><input id="cn-${t}" maxlength="12" placeholder="あたらしい項目"><button class="sm" onclick="addCat('${t}')">追加</button></div></div>`;
+  return blk('exp','Expense','支出の項目')+blk('inc','Income','収入の項目')+'<div class="empty">データはこのブラウザの中に保存されるよ</div>';
+}
+function addCat(t){
+  const n=$('#cn-'+t).value.trim();if(!n)return;
+  if(S.cats[t].some(c=>c.n===n)){alert('もうあるよ');return}
+  S.cats[t].push({n:n,c:S.cats[t].length%8});save();render();
+}
+function delCat(t,i){
+  if(S.cats[t].length<=1){alert('最低ひとつは必要だよ');return}
+  if(confirm('この項目を消す？（過去のきろくは残るよ）')){S.cats[t].splice(i,1);F.cat=0;save();render()}
+}
 
-<script src="home.js"></script>
+function render(){
+  $('#orn').innerHTML=SP;
+  $('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${k===tab?'on':''}" onclick="setTab('${k}')">${l}</button>`).join('');
+  $('#app').innerHTML=({home:vHome,week:vWeek,month:vMonth,save:vSave,set:vSet})[tab]();
+}
+render();
+</script>
 </body>
 </html>
