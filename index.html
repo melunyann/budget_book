@@ -18,15 +18,15 @@ svg{vertical-align:-2px}
 .hd h1{margin:0;font:italic 600 38px "Cormorant Garamond",Georgia,serif;letter-spacing:.06em}
 .hd p{margin:2px 0 0;font-size:11px;color:var(--sub);letter-spacing:.3em}
 nav{display:flex;justify-content:center;gap:4px;padding:8px 0 12px;position:sticky;top:0;z-index:5;background:linear-gradient(var(--bg2) 70%,transparent)}
-nav button{border:0;background:none;padding:7px 13px;font:inherit;font-size:13px;color:var(--sub);cursor:pointer;border-bottom:1.5px solid transparent;letter-spacing:.12em}
+nav button{border:0;background:none;padding:7px 10px;font:inherit;font-size:13px;color:var(--sub);cursor:pointer;border-bottom:1.5px solid transparent;letter-spacing:.12em}
 nav button.on{color:var(--deep);border-color:var(--main);font-weight:700}
 .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px 16px;margin-bottom:14px;box-shadow:0 6px 20px rgba(106,166,209,.10)}
 h2{margin:0 0 12px;display:flex;align-items:baseline;gap:8px;font-weight:500}
 h2 i{font:italic 600 21px "Cormorant Garamond",Georgia,serif;color:var(--deep);letter-spacing:.05em}
 h2 small{font-size:11px;color:var(--sub);letter-spacing:.15em}
 label{display:block;font-size:11px;color:var(--sub);margin:12px 0 4px;letter-spacing:.15em}
-input{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;background:var(--bg);color:var(--text)}
-input:focus{outline:none;border-color:var(--main);box-shadow:0 0 0 3px var(--soft)}
+input,textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;background:var(--bg);color:var(--text)}
+input:focus,textarea:focus{outline:none;border-color:var(--main);box-shadow:0 0 0 3px var(--soft)}
 .seg{display:flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--bg)}
 .seg button{flex:1;border:0;border-radius:999px;padding:8px;background:none;font:inherit;color:var(--sub);cursor:pointer;letter-spacing:.2em}
 .seg button.on{background:var(--main);color:#3a6585;font-weight:700}
@@ -68,6 +68,7 @@ input:focus{outline:none;border-color:var(--main);box-shadow:0 0 0 3px var(--sof
 .gt{display:flex;justify-content:space-between;align-items:center}
 .gt .nm{display:flex;align-items:center;gap:8px;font-weight:700}
 .big{font:italic 600 30px "Cormorant Garamond",Georgia,serif;color:var(--deep)}
+.dn p{margin:8px 0 4px;white-space:pre-wrap;line-height:1.8;overflow-wrap:anywhere}.dn small{color:var(--sub);font-size:11px}.dd{font:italic 600 17px "Cormorant Garamond","Zen Maru Gothic",serif;color:var(--deep)}textarea{resize:vertical;min-height:110px;line-height:1.7}
 .orn{display:block;margin:0 auto 4px;color:var(--main)}
 .acct{text-align:right;min-height:26px}.acct button{border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:999px;padding:4px 12px;font:inherit;font-size:11px;cursor:pointer}.acct span{font-size:11px;color:var(--deep);margin-right:8px}
 </style>
@@ -87,7 +88,7 @@ const heart='<svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.3 2.
 const PAL=['#cfe6f7','#f7d3dc','#ddd6f3','#d3eee6','#fbe6c8','#e4efc9','#f4d5ec','#cde9f1'];
 const mkc=(a)=>a.map((n,i)=>({n:n,c:i%8}));
 const DEF=()=>({tx:[],cats:{exp:mkc(['食費','日用品','交通','住居','光熱費','通信','美容','カフェ','趣味']),inc:mkc(['給料','おこづかい','副収入'])},goals:[]});
-let S=load();
+let S=load();if(!S.diary)S.diary=[];
 function load(){
   try{const d=JSON.parse(localStorage.getItem(K));if(d&&d.tx&&d.cats&&d.goals)return d}catch(e){}
   try{const o=JSON.parse(localStorage.getItem('kakeibo-v1'));if(o&&o.tx&&o.cats&&o.goals){
@@ -96,7 +97,7 @@ function load(){
   return DEF();
 }
 function save(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}if(window.cloudPush)window.cloudPush()}
-function applyCloud(j){try{S=JSON.parse(j);localStorage.setItem(K,j)}catch(e){return}keep();render()}
+function applyCloud(j){try{S=JSON.parse(j);if(!S.diary)S.diary=[];localStorage.setItem(K,j)}catch(e){return}keep();keepD();render()}
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const yen=n=>Math.round(n).toLocaleString('ja-JP')+'円';
@@ -107,7 +108,7 @@ const sum=(a,t)=>a.filter(x=>x.type===t).reduce((s,x)=>s+x.amt,0);
 const mk=()=>'';
 const mkt=(t,n)=>{const c=S.cats[t].find(c=>c.n===n);return mk(n,c?c.c:0)};
 const sh=(en,jp)=>`<h2><i>${en}</i><small>${jp}</small></h2>`;
-const TABS=[['home','きろく'],['week','週'],['month','月'],['save','貯金'],['set','項目']];
+const TABS=[['home','きろく'],['week','週'],['month','月'],['save','貯金'],['diary','日記'],['set','項目']];
 let tab='home',wOff=0,mOff=0;
 let F={type:'exp',cat:0,date:ymd(new Date()),amt:'',memo:''};
 
@@ -228,10 +229,36 @@ function delCat(t,i){
   if(confirm('この項目を消す？（過去のきろくは残るよ）')){S.cats[t].splice(i,1);F.cat=0;save();render()}
 }
 
+let D={date:ymd(new Date()),text:''};
+const WD='日月火水木金土';
+const dEntry=d=>S.diary.find(x=>x.date===d);
+function keepD(){const a=$('#dd');if(a){D.date=a.value;D.text=$('#dt').value}}
+function dDate(){keepD();const e=dEntry(D.date);D.text=e?e.text:'';render()}
+function saveDiary(){
+  keepD();if(!D.date)return;const t=D.text.trim();const i=S.diary.findIndex(x=>x.date===D.date);
+  if(!t){if(i>=0)S.diary.splice(i,1)}else if(i>=0)S.diary[i].text=t;else S.diary.push({date:D.date,text:t});
+  save();D.text='';render();
+}
+function editDiary(d){const e=dEntry(d);if(!e)return;D.date=d;D.text=e.text;render();window.scrollTo({top:0,behavior:'smooth'})}
+function delDiary(d){if(confirm('この日記を消す？')){S.diary=S.diary.filter(x=>x.date!==d);save();render()}}
+function vDiary(){
+  const list=[...S.diary].sort((a,b)=>b.date.localeCompare(a.date));
+  const items=list.map(e=>{
+    const w=WD[new Date(e.date+'T00:00:00').getDay()];
+    const sp=sum(S.tx.filter(t=>t.date===e.date),'exp');
+    return `<div class="card dn"><div class="gt"><span class="dd">${e.date.replace(/-/g,'.')} (${w})</span><span><button class="x" style="font-size:12px" onclick="editDiary('${e.date}')">編集</button><button class="x" onclick="delDiary('${e.date}')">×</button></span></div><p>${esc(e.text)}</p>${sp?`<small>この日の支出 ${yen(sp)}</small>`:''}</div>`;
+  }).join('');
+  return `<div class="card">${sh('Diary','日記をかく')}
+  <label>DATE</label><input type="date" id="dd" value="${esc(D.date)}" onchange="dDate()">
+  <label>TEXT</label><textarea id="dt" rows="5" placeholder="きょうのこと…">${esc(D.text)}</textarea>
+  <button class="main" onclick="saveDiary()">保存する ${spark(12)}</button></div>
+  ${items||'<div class="empty">まだ日記はないよ</div>'}`;
+}
+
 function render(){
   $('#orn').innerHTML=SP;
   $('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${k===tab?'on':''}" onclick="setTab('${k}')">${l}</button>`).join('');
-  $('#app').innerHTML=({home:vHome,week:vWeek,month:vMonth,save:vSave,set:vSet})[tab]();
+  $('#app').innerHTML=({home:vHome,week:vWeek,month:vMonth,save:vSave,diary:vDiary,set:vSet})[tab]();
 }
 render();
 </script>
